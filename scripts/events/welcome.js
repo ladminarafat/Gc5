@@ -5,31 +5,19 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.79",
+		version: "2.5.1",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
 
 	langs: {
 		vi: {
-			session1: "sáng",
-			session2: "trưa",
-			session3: "chiều",
-			session4: "tối",
 			welcomeMessage: "Thank you for inviting me in the group! 🤍\nPrefix bot: %1\nĐể xem danh sách lệnh hãy nhập: %1help",
-			multiple1: "bạn",
-			multiple2: "các bạn",
-			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶\n\n📊 Group Info:\n❀ Member #{memberNumber}\n❀ Total: {totalMembers}\n❀ Added by: {oo}"
+			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶"
 		},
 		en: {
-			session1: "morning",
-			session2: "noon",
-			session3: "afternoon",
-			session4: "evening",
 			welcomeMessage: "Thank you for inviting me in the group! 🤍\n\nBot prefix: %1\nTo view the list of commands, please enter: %1help",
-			multiple1: "you",
-			multiple2: "you guys",
-			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶\n\n📊 Group Info:\n❀ Member #{memberNumber}\n❀ Total: {totalMembers}\n❀ Added by: {oo}"
+			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶"
 		}
 	},
 
@@ -42,22 +30,18 @@ module.exports = {
 				const prefix = global.utils.getPrefix(threadID);
 				const dataAddedParticipants = event.logMessageData.addedParticipants;
 				
-				// if new member is bot
+				// If new member is bot
 				if (dataAddedParticipants.some((item) => item.userFbId == api.getCurrentUserID())) {
 					if (nickNameBot)
 						api.changeNickname(nickNameBot, threadID, api.getCurrentUserID());
 					
-					// Check if thread approval system is enabled
 					const { threadApproval } = global.GoatBot.config;
 					if (threadApproval && threadApproval.enable) {
 						try {
-							// Check if this thread is in the auto-approved list
 							const isAutoApprovedThread = threadApproval.autoApprovedThreads && threadApproval.autoApprovedThreads.includes(threadID);
 							
 							if (isAutoApprovedThread) {
 								await threadsData.set(threadID, { approved: true });
-								console.log(`Auto-approved thread ${threadID} from autoApprovedThreads list`);
-								
 								setTimeout(async () => {
 									try {
 										await api.sendMessage(getLang("welcomeMessage", prefix), threadID);
@@ -68,10 +52,8 @@ module.exports = {
 								return null;
 							}
 							
-							// Always set new threads as unapproved (if not auto-approved)
 							await threadsData.set(threadID, { approved: false });
 							
-							// Send notification to admin notification threads
 							if (threadApproval.adminNotificationThreads && threadApproval.adminNotificationThreads.length > 0 && threadApproval.sendNotifications !== false) {
 								setTimeout(async () => {
 									try {
@@ -79,48 +61,29 @@ module.exports = {
 										let addedByName = "Unknown";
 										
 										try {
-											try {
-												const threadData = await threadsData.get(threadID);
-												if (threadData && threadData.threadName && threadData.threadName !== "Unknown") {
-													threadInfo.threadName = threadData.threadName;
-													threadInfo.participantIDs = threadData.members || [];
-												} else {
-													throw new Error("threadsData returned unknown or empty");
-												}
-											} catch (threadsDataErr) {
-												await new Promise(resolve => setTimeout(resolve, 3000));
+											const threadData = await threadsData.get(threadID);
+											if (threadData && threadData.threadName && threadData.threadName !== "Unknown") {
+												threadInfo.threadName = threadData.threadName;
+												threadInfo.participantIDs = threadData.members || [];
+											} else {
 												const info = await api.getThreadInfo(threadID);
-												if (info && info.threadName) {
-													threadInfo = info;
-												} else {
-													threadInfo.threadName = `Thread ${threadID}`;
-													threadInfo.participantIDs = [];
-												}
+												if (info && info.threadName) threadInfo = info;
 											}
 										} catch (err) {
-											console.error(`Failed to get thread info for ${threadID}:`, err.message);
 											threadInfo.threadName = `Thread ${threadID}`;
-											threadInfo.participantIDs = [];
 										}
 										
 										try {
 											if (event.author) {
 												addedByName = await usersData.getName(event.author);
 												if (!addedByName || addedByName === "Unknown") {
-													try {
-														const userInfo = await api.getUserInfo(event.author);
-														if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-															addedByName = userInfo[event.author].name;
-														} else {
-															addedByName = `User ${event.author}`;
-														}
-													} catch (apiErr) {
-														addedByName = `User ${event.author}`;
+													const userInfo = await api.getUserInfo(event.author);
+													if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
+														addedByName = userInfo[event.author].name;
 													}
 												}
 											}
 										} catch (err) {
-											console.error(`Failed to get user info:`, err.message);
 											addedByName = "Unknown User";
 										}
 										
@@ -138,50 +101,35 @@ module.exports = {
 											try {
 												if (i > 0) await new Promise(resolve => setTimeout(resolve, 1500));
 												await api.sendMessage(notificationMessage, notifyThreadID);
-											} catch (err) {
-												console.error(`Failed to send notification to thread ${notifyThreadID}:`, err.message);
-											}
+											} catch (err) {}
 										}
-									} catch (err) {
-										console.error(`Failed to send notifications:`, err.message);
-									}
+									} catch (err) {}
 								}, 5000);
 							}
 							
-							// Send warning message to the new thread if enabled
 							if (threadApproval.sendThreadMessage !== false) {
 								setTimeout(async () => {
 									try {
 										await new Promise(resolve => setTimeout(resolve, 5000));
 										const warningMessage = `⚠️ This thread is not approved yet. Bot will not respond to any commands until approved by an admin.\n\nUse "${prefix}help" after approval to see available commands.`;
 										await api.sendMessage(warningMessage, threadID);
-									} catch (err) {
-										if (err.error === 1545116 || err.errorSummary === 'Thread disabled') {
-											console.log(`Thread ${threadID} is disabled, skipping approval message`);
-										} else {
-											console.error(`Failed to send approval message to thread ${threadID}:`, err.message);
-										}
-									}
+									} catch (err) {}
 								}, 10000);
 							}
 							
 							return null;
-						} catch (err) {
-							console.error(`Thread approval system error:`, err.message);
-						}
+						} catch (err) {}
 					}
 					
 					setTimeout(async () => {
 						try {
 							await api.sendMessage(getLang("welcomeMessage", prefix), threadID);
-						} catch (err) {
-							console.error(`Failed to send welcome message to thread ${threadID}:`, err.message);
-						}
+						} catch (err) {}
 					}, 2000);
 					return null;
 				}
 
-				// if new member:
+				// If new member joined
 				if (!global.temp.welcomeEvent[threadID])
 					global.temp.welcomeEvent[threadID] = {
 						joinTimeout: null,
@@ -200,98 +148,53 @@ module.exports = {
 					const dataAddedParticipants = global.temp.welcomeEvent[threadID].dataAddedParticipants;
 					const dataBanned = threadData.data.banned_ban || [];
 					const threadName = threadData.threadName;
-					const userName = [], mentions = [];
-					let multiple = false;
-
-					if (dataAddedParticipants.length > 1)
-						multiple = true;
+					const validUsers = [];
 
 					for (const user of dataAddedParticipants) {
-						if (dataBanned.some((item) => item.id == user.userFbId))
-							continue;
-						userName.push(user.fullName);
-						mentions.push({
-							tag: user.fullName,
-							id: user.userFbId
-						});
+						if (!dataBanned.some((item) => item.id == user.userFbId)) {
+							validUsers.push(user);
+						}
 					}
 
-					if (userName.length == 0) return;
+					if (validUsers.length == 0) return;
+
 					let { welcomeMessage = getLang("defaultWelcomeMessage") } = threadData.data;
 
-					const form = {
-						mentions: welcomeMessage.match(/\{userNameTag\}/g) ? mentions : null
-					};
+					// Format normal mention like @Name
+					const mentions = [];
+					const namesTextArray = [];
 
-					let totalMembers = threadData.members ? threadData.members.length : 0;
-					
-					let memberNumbers = [];
-					if (totalMembers > 0) {
-						const membersList = threadData.members || [];
-						for (const user of dataAddedParticipants) {
-							if (!dataBanned.some((item) => item.id == user.userFbId)) {
-								const position = membersList.indexOf(user.userFbId) + 1;
-								memberNumbers.push(position > 0 ? position : totalMembers);
-							}
-						}
-					}
-					const memberNumberText = memberNumbers.length > 0 ? memberNumbers.join(", ") : "?";
-
-					let addedByName = "Unknown";
-					try {
-						if (event.author) {
-							addedByName = await usersData.getName(event.author);
-							if (!addedByName || addedByName === "Unknown") {
-								try {
-									const userInfo = await api.getUserInfo(event.author);
-									if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-										addedByName = userInfo[event.author].name;
-									}
-								} catch (apiErr) {}
-							}
-						}
-					} catch (err) {
-						console.error(`Failed to get added by user info:`, err.message);
+					for (const user of validUsers) {
+						const mentionTag = `@${user.fullName}`;
+						namesTextArray.push(mentionTag);
 					}
 
-					let dailyJoins = 0;
-					try {
-						const today = new Date().toISOString().split('T')[0];
-						if (threadData.data.dailyJoinStats && typeof threadData.data.dailyJoinStats === 'object') {
-							dailyJoins = threadData.data.dailyJoinStats[today] || 0;
-						}
-						if (!threadData.data.dailyJoinStats) {
-							threadData.data.dailyJoinStats = {};
-						}
-						threadData.data.dailyJoinStats[today] = (threadData.data.dailyJoinStats[today] || 0) + userName.length;
-						await threadsData.set(threadID, { data: threadData.data });
-					} catch (err) {
-						console.error(`Failed to track daily joins:`, err.message);
-					}
+					const namesFormattedString = namesTextArray.join(", ");
 
+					// Replace placeholders
 					welcomeMessage = welcomeMessage
-						.replace(/\{userName\}|\{userNameTag\}/g, userName.join(", "))
-						.replace(/\{boxName\}|\{threadName\}/g, threadName)
-						.replace(
-							/\{multiple\}/g,
-							multiple ? getLang("multiple2") : getLang("multiple1")
-						)
-						.replace(
-							/\{session\}/g,
-							hours <= 10
-								? getLang("session1")
-								: hours <= 12
-									? getLang("session2")
-									: hours <= 18
-										? getLang("session3")
-										: getLang("session4")
-						)
-						.replace(/\{memberNumber\}/g, memberNumberText)
-						.replace(/\{totalMembers\}/g, totalMembers.toString())
-						.replace(/\{oo\}/g, addedByName)
-						.replace(/\{dailyJoins\}/g, dailyJoins.toString());
+						.replace(/\{userName\}|\{userNameTag\}/g, namesFormattedString)
+						.replace(/\{boxName\}|\{threadName\}/g, threadName);
 
-					form.body = welcomeMessage;
+					// Build accurate mentions array with index positions
+					let searchIndex = 0;
+					for (const user of validUsers) {
+						const mentionTag = `@${user.fullName}`;
+						const pos = welcomeMessage.indexOf(mentionTag, searchIndex);
+						if (pos !== -1) {
+							mentions.push({
+								tag: user.fullName,
+								id: user.userFbId,
+								fromIndex: pos
+							});
+							searchIndex = pos + mentionTag.length;
+						}
+					}
+
+					const form = {
+						body: welcomeMessage,
+						mentions: mentions.length > 0 ? mentions : null
+					};
 
 					if (threadData.data.welcomeAttachment) {
 						const files = threadData.data.welcomeAttachment;
@@ -303,10 +206,10 @@ module.exports = {
 							.filter(({ status }) => status == "fulfilled")
 							.map(({ value }) => value);
 					}
+					
 					message.send(form);
 					delete global.temp.welcomeEvent[threadID];
 				}, 1500);
 			};
 	}
 };
-								
