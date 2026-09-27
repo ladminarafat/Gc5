@@ -27,8 +27,8 @@
     "notes": "Bio update system. When enabled, bot will update user bio on startup. If updateOnce is true, bio will only be updated once and not on every restart. Leave bioText empty to disable."
   },
   "antiInbox": true,
-  "nickNameBot": "ST | BOT",
-  "prefix": "!",
+  "nickNameBot": "Shijuka Chan🍷🌸",
+  "prefix": ".",
   "usePrefix": {
     "enable": true,
     "adminUsePrefix": {
