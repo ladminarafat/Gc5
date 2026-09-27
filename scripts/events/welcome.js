@@ -5,7 +5,7 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.5.1",
+		version: "2.5.8",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -13,18 +13,17 @@ module.exports = {
 	langs: {
 		vi: {
 			welcomeMessage: "Thank you for inviting me in the group! 🤍\nPrefix bot: %1\nĐể xem danh sách lệnh hãy nhập: %1help",
-			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶"
+			defaultWelcomeMessage: "{userNameTag} Welcome {emoji}"
 		},
 		en: {
 			welcomeMessage: "Thank you for inviting me in the group! 🤍\n\nBot prefix: %1\nTo view the list of commands, please enter: %1help",
-			defaultWelcomeMessage: "🌸 Welcome {userNameTag} to {boxName}! 🫶"
+			defaultWelcomeMessage: "{userNameTag} Welcome {emoji}"
 		}
 	},
 
 	onStart: async ({ threadsData, message, event, api, getLang, usersData }) => {
 		if (event.logMessageType == "log:subscribe")
 			return async function () {
-				const hours = getTime("HH");
 				const { threadID } = event;
 				const { nickNameBot } = global.GoatBot.config;
 				const prefix = global.utils.getPrefix(threadID);
@@ -147,7 +146,6 @@ module.exports = {
 
 					const dataAddedParticipants = global.temp.welcomeEvent[threadID].dataAddedParticipants;
 					const dataBanned = threadData.data.banned_ban || [];
-					const threadName = threadData.threadName;
 					const validUsers = [];
 
 					for (const user of dataAddedParticipants) {
@@ -159,6 +157,10 @@ module.exports = {
 					if (validUsers.length == 0) return;
 
 					let { welcomeMessage = getLang("defaultWelcomeMessage") } = threadData.data;
+
+					// Updated random welcome emojis list (removed 🚩, added 👀)
+					const welcomeEmojis = ["🍷", "🐣", "🌸", "🤍", "🦋", "🎀", "🌷", "👀"];
+					const randomEmoji = welcomeEmojis[Math.floor(Math.random() * welcomeEmojis.length)];
 
 					// Format normal mention like @Name
 					const mentions = [];
@@ -174,7 +176,7 @@ module.exports = {
 					// Replace placeholders
 					welcomeMessage = welcomeMessage
 						.replace(/\{userName\}|\{userNameTag\}/g, namesFormattedString)
-						.replace(/\{boxName\}|\{threadName\}/g, threadName);
+						.replace(/\{emoji\}/g, randomEmoji);
 
 					// Build accurate mentions array with index positions
 					let searchIndex = 0;
@@ -213,3 +215,4 @@ module.exports = {
 			};
 	}
 };
+											
