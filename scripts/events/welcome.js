@@ -1,6 +1,7 @@
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
+const { createCanvas, loadImage } = require("canvas");
 
 if (!global.temp.welcomeEvent)
 	global.temp.welcomeEvent = {};
@@ -8,23 +9,12 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "4.0.0",
+		version: "5.0.0",
 		author: "ST | Sheikh Tamim & Edit",
 		category: "events"
 	},
 
-	langs: {
-		vi: {
-			welcomeMessage: "Cảm ơn bạn đã mời tôi vào nhóm!\nPrefix bot: %1",
-			defaultWelcomeMessage: "WELCOME {userNameTag}"
-		},
-		en: {
-			welcomeMessage: "Thank you for inviting me to the group!\nBot prefix: %1",
-			defaultWelcomeMessage: "WELCOME {userNameTag}"
-		}
-	},
-
-	onStart: async ({ threadsData, message, event, api, getLang, usersData }) => {
+	onStart: async ({ threadsData, message, event, api, usersData }) => {
 		if (event.logMessageType == "log:subscribe")
 			return async function () {
 				const { threadID } = event;
@@ -41,16 +31,12 @@ module.exports = {
 
 				global.temp.welcomeEvent[threadID].joinTimeout = setTimeout(async function () {
 					const threadData = await threadsData.get(threadID);
-					
-					if (threadData.settings && threadData.settings.sendWelcomeMessage === false)
-						return;
-						
+					if (threadData.settings && threadData.settings.sendWelcomeMessage === false) return;
+
 					const dataAddedParticipants = global.temp.welcomeEvent[threadID].dataAddedParticipants;
-					const dataBanned = threadData.data.banned_ban || [];
 					const userName = [], mentions = [];
 
 					for (const user of dataAddedParticipants) {
-						if (dataBanned.some((item) => item.id == user.userFbId)) continue;
 						userName.push(user.fullName);
 						mentions.push({
 							tag: user.fullName,
@@ -60,54 +46,49 @@ module.exports = {
 
 					if (userName.length == 0) return;
 
-					// Welcome text logic
-					const welcomeText = `𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ${userName.map(name => `@${name}`).join(", ")}`;
-
-					// Shinobu image URL
-					const imageUrl = "https://i.ibb.co/YTVRrXXN/1000025531.jpg";
 					const cacheDir = path.join(__dirname, "cache");
-					if (!fs.existsSync(cacheDir)) {
-						fs.mkdirSync(cacheDir, { recursive: true });
-					}
-					const imagePath = path.join(cacheDir, `welcome_${threadID}.jpg`);
+					if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+					const imagePath = path.join(cacheDir, `welcome_card_${threadID}.png`);
 
 					try {
-						// Download image
-						const response = await axios({
-							url: imageUrl,
-							method: "GET",
-							responseType: "stream"
-						});
+						// ১. মূল ছবি ডাউনলোড ও ক্যানভাস তৈরি
+						const bgImage = await loadImage("https://i.ibb.co/YTVRrXXN/1000025531.jpg");
+						
+						const width = bgImage.width;
+						const height = bgImage.height;
+						const headerHeight = 100; // উপরের কালো বারের উচ্চতা
 
-						const writer = fs.createWriteStream(imagePath);
-						response.data.pipe(writer);
+						const canvas = createCanvas(width, height + headerHeight);
+						const ctx = canvas.getContext("2d");
 
-						await new Promise((resolve, reject) => {
-							writer.on("finish", resolve);
-							writer.on("error", reject);
-						});
+						// ২. উপরে কালো ব্যাকগ্রাউন্ড আঁকা
+						ctx.fillStyle = "#121212";
+						ctx.fillRect(0, 0, width, headerHeight);
 
-						// STEP 1: Send ONLY Image First (Pura Full Picture Dekhabe)
+						// ৩. টেক্সট বসানো (WELCOME @Name)
+						ctx.fillStyle = "#ffffff";
+						ctx.font = "bold 45px Sans-serif";
+						const welcomeText = `WELCOME  @${userName.join(", ")}`;
+						ctx.fillText(welcomeText, 50, 65);
+
+						// ৪. নিচে আসল ছবি ড্র করা
+						ctx.drawImage(bgImage, 0, headerHeight, width, height);
+
+						// ৫. ক্যাশ সেভ করা
+						const buffer = canvas.toBuffer("image/png");
+						fs.writeFileSync(imagePath, buffer);
+
+						// ৬. ছবি আকারে সেন্ড করা + ট্যাগ নোটিফিকেশন দেওয়া
 						await message.send({
+							body: `@${userName.join(", ")}`, // নোটিফিকেশন যাওয়ার জন্য ট্যাগের লেখা
+							mentions: mentions,
 							attachment: fs.createReadStream(imagePath)
 						});
 
-						if (fs.existsSync(imagePath)) {
-							fs.unlinkSync(imagePath);
-						}
-
-						// STEP 2: Send Text with Tag Second (Chobir Niche Tag Shaho Text Jabe)
-						await message.send({
-							body: welcomeText,
-							mentions: mentions
-						});
+						if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
 
 					} catch (err) {
-						console.error("Image download error:", err.message);
-						await message.send({
-							body: welcomeText,
-							mentions: mentions
-						});
+						console.error("Canvas Welcome Error:", err);
 					}
 
 					delete global.temp.welcomeEvent[threadID];
