@@ -12,8 +12,8 @@
   "twoIdMode": {
     "enable": false,
     "secondaryAccount": {
-      "email": "",
-      "password": "",
+      "email": "badav51163@ncleap.com",
+      "password": "botaccount12@@",
       "twoFactorCode": "",
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6.2 Safari/605.1.15"
     },
@@ -27,8 +27,8 @@
     "notes": "Bio update system. When enabled, bot will update user bio on startup. If updateOnce is true, bio will only be updated once and not on every restart. Leave bioText empty to disable."
   },
   "antiInbox": true,
-  "nickNameBot": "Shijuka Chan🍷🌸",
-  "prefix": ".",
+  "nickNameBot": "HI NA TA",
+  "prefix": "!",
   "usePrefix": {
     "enable": true,
     "adminUsePrefix": {
