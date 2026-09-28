@@ -8,7 +8,7 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "3.9.0",
+		version: "4.0.0",
 		author: "ST | Sheikh Tamim & Edit",
 		category: "events"
 	},
@@ -60,13 +60,8 @@ module.exports = {
 
 					if (userName.length == 0) return;
 
-					// Clean text with mention (No symbol, no emoji)
+					// Welcome text logic
 					const welcomeText = `𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ${userName.map(name => `@${name}`).join(", ")}`;
-
-					const form = {
-						body: welcomeText,
-						mentions: mentions
-					};
 
 					// Shinobu image URL
 					const imageUrl = "https://i.ibb.co/YTVRrXXN/1000025531.jpg";
@@ -77,6 +72,7 @@ module.exports = {
 					const imagePath = path.join(cacheDir, `welcome_${threadID}.jpg`);
 
 					try {
+						// Download image
 						const response = await axios({
 							url: imageUrl,
 							method: "GET",
@@ -91,15 +87,27 @@ module.exports = {
 							writer.on("error", reject);
 						});
 
-						form.attachment = fs.createReadStream(imagePath);
+						// STEP 1: Send ONLY Image First (Pura Full Picture Dekhabe)
+						await message.send({
+							attachment: fs.createReadStream(imagePath)
+						});
 
-						await message.send(form);
 						if (fs.existsSync(imagePath)) {
 							fs.unlinkSync(imagePath);
 						}
+
+						// STEP 2: Send Text with Tag Second (Chobir Niche Tag Shaho Text Jabe)
+						await message.send({
+							body: welcomeText,
+							mentions: mentions
+						});
+
 					} catch (err) {
 						console.error("Image download error:", err.message);
-						await message.send(form);
+						await message.send({
+							body: welcomeText,
+							mentions: mentions
+						});
 					}
 
 					delete global.temp.welcomeEvent[threadID];
