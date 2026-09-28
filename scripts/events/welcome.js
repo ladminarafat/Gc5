@@ -2,14 +2,13 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
-const { getTime, drive } = global.utils;
 if (!global.temp.welcomeEvent)
 	global.temp.welcomeEvent = {};
 
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "3.6.0",
+		version: "3.9.0",
 		author: "ST | Sheikh Tamim & Edit",
 		category: "events"
 	},
@@ -17,11 +16,11 @@ module.exports = {
 	langs: {
 		vi: {
 			welcomeMessage: "Cảm ơn bạn đã mời tôi vào nhóm!\nPrefix bot: %1",
-			defaultWelcomeMessage: "👀 𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ⏩  {userNameTag}"
+			defaultWelcomeMessage: "WELCOME {userNameTag}"
 		},
 		en: {
 			welcomeMessage: "Thank you for inviting me to the group!\nBot prefix: %1",
-			defaultWelcomeMessage: "👀 𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ⏩  {userNameTag}"
+			defaultWelcomeMessage: "WELCOME {userNameTag}"
 		}
 	},
 
@@ -61,15 +60,15 @@ module.exports = {
 
 					if (userName.length == 0) return;
 
-					// কাস্টম টেক্সট ও মেনশন ফরম্যাট
-					const welcomeText = `👀 𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ⏩  ${userName.map(name => `@${name}`).join(", ")}`;
+					// Clean text with mention (No symbol, no emoji)
+					const welcomeText = `𝐖𝐄𝐋𝐂𝐎𝐌𝐄  ${userName.map(name => `@${name}`).join(", ")}`;
 
 					const form = {
 						body: welcomeText,
 						mentions: mentions
 					};
 
-					// Shinobu Kocho ইমেজের লিংক
+					// Shinobu image URL
 					const imageUrl = "https://i.ibb.co/YTVRrXXN/1000025531.jpg";
 					const cacheDir = path.join(__dirname, "cache");
 					if (!fs.existsSync(cacheDir)) {
@@ -99,7 +98,7 @@ module.exports = {
 							fs.unlinkSync(imagePath);
 						}
 					} catch (err) {
-						console.error("Welcome image error:", err.message);
+						console.error("Image download error:", err.message);
 						await message.send(form);
 					}
 
