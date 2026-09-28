@@ -28,7 +28,7 @@
   },
   "antiInbox": true,
   "nickNameBot": "HI NA TA",
-  "prefix": "!",
+  "prefix": ".",
   "usePrefix": {
     "enable": true,
     "adminUsePrefix": {
