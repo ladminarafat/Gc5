@@ -28,7 +28,7 @@
   },
   "antiInbox": true,
   "nickNameBot": "Shijuka Chan🍷🌸",
-  "prefix": "~",
+  "prefix": ".",
   "usePrefix": {
     "enable": true,
     "adminUsePrefix": {
