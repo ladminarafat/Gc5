@@ -1,141 +1,262 @@
 const axios = require("axios");
-const { getTime } = global.utils;
 
 if (!global.temp.welcomeEvent)
 	global.temp.welcomeEvent = {};
 
+if (!global.temp.welcomeMessageID)
+	global.temp.welcomeMessageID = {};
+
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.78",
+		version: "2.5.0",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
 
-	langs: {
-		en: {
-			welcomeMessage: "Thank you for inviting me to the group!",
-			defaultWelcomeMessage: "𝗪𝗘𝗟𝗖𝗢𝗠𝗘 {userNameTag}"
-		}
-	},
+	onStart: async ({ threadsData, message, event, api }) => {
 
-	onStart: async ({ threadsData, message, event, api, getLang }) => {
+		/*
+		 * =========================================================
+		 * WELCOME REPLY SYSTEM
+		 * =========================================================
+		 */
+
+		if (
+			event.body &&
+			event.messageReply &&
+			event.messageReply.messageID
+		) {
+			const threadID = event.threadID;
+
+			const savedWelcomeID =
+				global.temp.welcomeMessageID[threadID];
+
+			// Only work when replying to bot's welcome message
+			if (
+				savedWelcomeID &&
+				event.messageReply.messageID == savedWelcomeID
+			) {
+				const text = event.body
+					.toLowerCase()
+					.trim();
+
+				/*
+				 * Thanks / Thank / Tnks / Tnx / Thx / Ty
+				 */
+				const thanksWords = [
+					"thanks",
+					"thank",
+					"thank you",
+					"tnks",
+					"tnx",
+					"thx",
+					"ty",
+					"thanku",
+					"thankyou"
+				];
+
+				const isThanks = thanksWords.some(word =>
+					text.includes(word)
+				);
+
+				if (isThanks) {
+					await message.reply(
+						"🤍 Intro den apner"
+					);
+					return;
+				}
+
+				/*
+				 * If user writes "name" anywhere
+				 * → react 🤍
+				 */
+				if (/\bname\b/i.test(event.body)) {
+					await api.setMessageReaction(
+						"🤍",
+						event.messageID,
+						(err) => {},
+						true
+					);
+
+					return;
+				}
+			}
+		}
+
+		/*
+		 * =========================================================
+		 * WELCOME EVENT
+		 * =========================================================
+		 */
+
 		if (event.logMessageType != "log:subscribe")
 			return;
 
-		return async function () {
-			const { threadID } = event;
-			const dataAddedParticipants = event.logMessageData.addedParticipants;
+		const { threadID } = event;
 
-			// If bot itself was added
-			if (dataAddedParticipants.some(
-				item => item.userFbId == api.getCurrentUserID()
-			)) {
-				return;
-			}
+		const dataAddedParticipants =
+			event.logMessageData.addedParticipants;
 
-			if (!global.temp.welcomeEvent[threadID]) {
-				global.temp.welcomeEvent[threadID] = {
-					joinTimeout: null,
-					dataAddedParticipants: []
-				};
-			}
+		// Bot নিজে add হলে welcome পাঠাবে না
+		if (
+			dataAddedParticipants.some(
+				item =>
+					item.userFbId ==
+					api.getCurrentUserID()
+			)
+		)
+			return;
 
-			global.temp.welcomeEvent[threadID].dataAddedParticipants.push(
-				...dataAddedParticipants
-			);
+		if (!global.temp.welcomeEvent[threadID]) {
+			global.temp.welcomeEvent[threadID] = {
+				joinTimeout: null,
+				dataAddedParticipants: []
+			};
+		}
 
-			clearTimeout(
-				global.temp.welcomeEvent[threadID].joinTimeout
-			);
+		global.temp.welcomeEvent[
+			threadID
+		].dataAddedParticipants.push(
+			...dataAddedParticipants
+		);
 
-			global.temp.welcomeEvent[threadID].joinTimeout = setTimeout(
-				async function () {
-					try {
-						const threadData = await threadsData.get(threadID);
+		clearTimeout(
+			global.temp.welcomeEvent[threadID].joinTimeout
+		);
 
+		global.temp.welcomeEvent[threadID].joinTimeout =
+			setTimeout(async function () {
+				try {
+					const threadData =
+						await threadsData.get(threadID);
+
+					// Welcome disabled হলে
+					if (
+						threadData.settings &&
+						threadData.settings
+							.sendWelcomeMessage === false
+					) {
+						delete global.temp.welcomeEvent[
+							threadID
+						];
+						return;
+					}
+
+					const participants =
+						global.temp.welcomeEvent[
+							threadID
+						].dataAddedParticipants;
+
+					const dataBanned =
+						threadData.data?.banned_ban || [];
+
+					const mentions = [];
+					const welcomeNames = [];
+
+					for (const user of participants) {
+
+						// Banned user skip
 						if (
-							threadData.settings &&
-							threadData.settings.sendWelcomeMessage === false
-						) {
-							delete global.temp.welcomeEvent[threadID];
-							return;
-						}
-
-						const participants =
-							global.temp.welcomeEvent[threadID].dataAddedParticipants;
-
-						const dataBanned =
-							threadData.data?.banned_ban || [];
-
-						const mentions = [];
-						const names = [];
-
-						for (const user of participants) {
-							if (
-								dataBanned.some(
-									item => item.id == user.userFbId
-								)
+							dataBanned.some(
+								item =>
+									item.id ==
+									user.userFbId
 							)
-								continue;
+						)
+							continue;
 
-							names.push(user.fullName);
-
-							mentions.push({
-								tag: user.fullName,
-								id: user.userFbId
-							});
-						}
-
-						if (names.length === 0) {
-							delete global.temp.welcomeEvent[threadID];
-							return;
-						}
-
-						// Simple welcome message
-						const welcomeMessage =
-							`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${names
-								.map(name => `@${name}`)
-								.join(", ")}`;
-
-						const form = {
-							body: welcomeMessage,
-							mentions: mentions
-						};
-
-						// Welcome image
-						const welcomeImageUrl =
-							"https://i.ibb.co/YTVRrXXN/1000025531.jpg";
-
-						try {
-							const imageResponse = await axios.get(
-								welcomeImageUrl,
-								{ responseType: "stream" }
-							);
-
-							form.attachment = imageResponse.data;
-						} catch (err) {
-							console.error(
-								"Failed to load welcome image:",
-								err.message
-							);
-						}
-
-						await message.send(form);
-
-						delete global.temp.welcomeEvent[threadID];
-
-					} catch (err) {
-						console.error(
-							"Welcome event error:",
-							err.message
+						welcomeNames.push(
+							`@${user.fullName}`
 						);
 
-						delete global.temp.welcomeEvent[threadID];
+						mentions.push({
+							tag: `@${user.fullName}`,
+							id: user.userFbId
+						});
 					}
-				},
-				1500
-			);
-		};
+
+					if (mentions.length === 0) {
+						delete global.temp.welcomeEvent[
+							threadID
+						];
+						return;
+					}
+
+					/*
+					 * Welcome text
+					 */
+					const welcomeText =
+						`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${welcomeNames.join(", ")}`;
+
+					/*
+					 * Welcome image
+					 */
+					const imageUrl =
+						"https://i.ibb.co/6Jqnd88y/IMG-20260928-165303-402.jpg";
+
+					const response =
+						await axios.get(imageUrl, {
+							responseType: "stream"
+						});
+
+					const form = {
+						body: welcomeText,
+						mentions: mentions,
+						attachment: response.data
+					};
+
+					/*
+					 * Send welcome
+					 */
+					const sentMessage =
+						await message.send(form);
+
+					/*
+					 * Save welcome message ID
+					 * so only replies to this message
+					 * trigger the special replies.
+					 */
+					let welcomeMessageID = null;
+
+					if (typeof sentMessage === "string") {
+						welcomeMessageID = sentMessage;
+					}
+					else if (
+						sentMessage &&
+						sentMessage.messageID
+					) {
+						welcomeMessageID =
+							sentMessage.messageID;
+					}
+					else if (
+						sentMessage &&
+						sentMessage.messageId
+					) {
+						welcomeMessageID =
+							sentMessage.messageId;
+					}
+
+					if (welcomeMessageID) {
+						global.temp.welcomeMessageID[
+							threadID
+						] = welcomeMessageID;
+					}
+
+					delete global.temp.welcomeEvent[
+						threadID
+					];
+
+				} catch (error) {
+					console.error(
+						"Welcome message error:",
+						error
+					);
+
+					delete global.temp.welcomeEvent[
+						threadID
+					];
+				}
+			}, 1500);
 	}
 };
