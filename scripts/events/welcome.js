@@ -23,7 +23,7 @@ module.exports = {
 			welcomeMessage: "Cảm ơn bạn đã mời tôi vào nhóm!\nPrefix bot: %1\nĐể xem danh sách lệnh hãy nhập: %1help",
 			multiple1: "bạn",
 			multiple2: "các bạn",
-			defaultWelcomeMessage: "💖 Matchmaking Complete 💖\n\n🎀 {userNameTag} 🎀\n\n🕊️ Destiny has written your names together 🌹\nMay your bond last forever ✨\n\n💖 Compatibility: 100% 💖"
+			defaultWelcomeMessage: "💖 Welcome to Our Group 💖\n\n🎀 {userNameTag} 🎀\n\n🕊️ Destiny has brought you to 《 {boxName} 》 🌹\nMay your bond last forever ✨\n\n💖 Member #{memberNumber} | Total: {totalMembers} 💖"
 		},
 		en: {
 			session1: "morning",
@@ -33,7 +33,7 @@ module.exports = {
 			welcomeMessage: "Thank you for inviting me to the group!\nBot prefix: %1\nTo view the list of commands, please enter: %1help",
 			multiple1: "you",
 			multiple2: "you guys",
-			defaultWelcomeMessage: `💖 Matchmaking Complete 💖\n\n🎀 {userNameTag} 🎀\n\n🕊️ Destiny has written your names together 🌹\nMay your bond last forever ✨\n\n💖 Compatibility: 100% 💖`
+			defaultWelcomeMessage: `💖 Welcome to Our Group 💖\n\n🎀 {userNameTag} 🎀\n\n🕊️ Destiny has brought you to 《 {boxName} 》 🌹\nMay your bond last forever ✨\n\n💖 Member #{memberNumber} | Total: {totalMembers} 💖`
 		}
 	},
 
@@ -46,7 +46,7 @@ module.exports = {
 				const prefix = global.utils.getPrefix(threadID);
 				const dataAddedParticipants = event.logMessageData.addedParticipants;
 				
-				// if new member is bot
+				// New member is bot logic
 				if (dataAddedParticipants.some((item) => item.userFbId == api.getCurrentUserID())) {
 					if (nickNameBot)
 						api.changeNickname(nickNameBot, threadID, api.getCurrentUserID());
@@ -77,48 +77,29 @@ module.exports = {
 										let addedByName = "Unknown";
 										
 										try {
-											try {
-												const threadData = await threadsData.get(threadID);
-												if (threadData && threadData.threadName && threadData.threadName !== "Unknown") {
-													threadInfo.threadName = threadData.threadName;
-													threadInfo.participantIDs = threadData.members || [];
-												} else {
-													throw new Error("threadsData returned unknown or empty");
-												}
-											} catch (threadsDataErr) {
-												await new Promise(resolve => setTimeout(resolve, 3000));
+											const threadData = await threadsData.get(threadID);
+											if (threadData && threadData.threadName && threadData.threadName !== "Unknown") {
+												threadInfo.threadName = threadData.threadName;
+												threadInfo.participantIDs = threadData.members || [];
+											} else {
 												const info = await api.getThreadInfo(threadID);
-												if (info && info.threadName) {
-													threadInfo = info;
-												} else {
-													threadInfo.threadName = `Thread ${threadID}`;
-													threadInfo.participantIDs = [];
-												}
+												if (info && info.threadName) threadInfo = info;
 											}
 										} catch (err) {
-											console.error(`Failed to get thread info for ${threadID}:`, err.message);
 											threadInfo.threadName = `Thread ${threadID}`;
-											threadInfo.participantIDs = [];
 										}
 										
 										try {
 											if (event.author) {
 												addedByName = await usersData.getName(event.author);
 												if (!addedByName || addedByName === "Unknown") {
-													try {
-														const userInfo = await api.getUserInfo(event.author);
-														if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-															addedByName = userInfo[event.author].name;
-														} else {
-															addedByName = `User ${event.author}`;
-														}
-													} catch (apiErr) {
-														addedByName = `User ${event.author}`;
+													const userInfo = await api.getUserInfo(event.author);
+													if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
+														addedByName = userInfo[event.author].name;
 													}
 												}
 											}
 										} catch (err) {
-											console.error(`Failed to get user info:`, err.message);
 											addedByName = "Unknown User";
 										}
 										
@@ -136,13 +117,9 @@ module.exports = {
 											try {
 												if (i > 0) await new Promise(resolve => setTimeout(resolve, 1500));
 												await api.sendMessage(notificationMessage, notifyThreadID);
-											} catch (err) {
-												console.error(`Failed to send notification to thread ${notifyThreadID}:`, err.message);
-											}
+											} catch (err) {}
 										}
-									} catch (err) {
-										console.error(`Failed to send notifications:`, err.message);
-									}
+									} catch (err) {}
 								}, 5000);
 							}
 							
@@ -152,33 +129,23 @@ module.exports = {
 										await new Promise(resolve => setTimeout(resolve, 5000));
 										const warningMessage = `⚠️ This thread is not approved yet. Bot will not respond to any commands until approved by an admin.\n\nUse "${prefix}help" after approval to see available commands.`;
 										await api.sendMessage(warningMessage, threadID);
-									} catch (err) {
-										if (err.error === 1545116 || err.errorSummary === 'Thread disabled') {
-											console.log(`Thread ${threadID} is disabled, skipping approval message`);
-										} else {
-											console.error(`Failed to send approval message to thread ${threadID}:`, err.message);
-										}
-									}
+									} catch (err) {}
 								}, 10000);
 							}
 							
 							return null;
-						} catch (err) {
-							console.error(`Thread approval system error:`, err.message);
-						}
+						} catch (err) {}
 					}
 					
 					setTimeout(async () => {
 						try {
 							await api.sendMessage(getLang("welcomeMessage", prefix), threadID);
-						} catch (err) {
-							console.error(`Failed to send welcome message to thread ${threadID}:`, err.message);
-						}
+						} catch (err) {}
 					}, 2000);
 					return null;
 				}
 
-				// if new member:
+				// If new member added
 				if (!global.temp.welcomeEvent[threadID])
 					global.temp.welcomeEvent[threadID] = {
 						joinTimeout: null,
@@ -200,12 +167,10 @@ module.exports = {
 					const userName = [], mentions = [];
 					let multiple = false;
 
-					if (dataAddedParticipants.length > 1)
-						multiple = true;
+					if (dataAddedParticipants.length > 1) multiple = true;
 
 					for (const user of dataAddedParticipants) {
-						if (dataBanned.some((item) => item.id == user.userFbId))
-							continue;
+						if (dataBanned.some((item) => item.id == user.userFbId)) continue;
 						userName.push(user.fullName);
 						mentions.push({
 							tag: user.fullName,
@@ -235,17 +200,13 @@ module.exports = {
 						if (event.author) {
 							addedByName = await usersData.getName(event.author);
 							if (!addedByName || addedByName === "Unknown") {
-								try {
-									const userInfo = await api.getUserInfo(event.author);
-									if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-										addedByName = userInfo[event.author].name;
-									}
-								} catch (apiErr) {}
+								const userInfo = await api.getUserInfo(event.author);
+								if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
+									addedByName = userInfo[event.author].name;
+								}
 							}
 						}
-					} catch (err) {
-						console.error(`Failed to get added by user info:`, err.message);
-					}
+					} catch (err) {}
 
 					let dailyJoins = 0;
 					try {
@@ -258,9 +219,7 @@ module.exports = {
 						}
 						threadData.data.dailyJoinStats[today] = (threadData.data.dailyJoinStats[today] || 0) + userName.length;
 						await threadsData.set(threadID, { data: threadData.data });
-					} catch (err) {
-						console.error(`Failed to track daily joins:`, err.message);
-					}
+					} catch (err) {}
 
 					welcomeMessage = welcomeMessage
 						.replace(/\{userName\}|\{userNameTag\}/g, userName.join(", "))
@@ -280,7 +239,7 @@ module.exports = {
 						mentions: mentions
 					};
 
-					// Image Handler System
+					// আপলোড করা ইমেজের লিঙ্ক (Shinobu image)
 					const imageUrl = "https://i.ibb.co/YTVRrXXN/1000025531.jpg";
 					const cacheDir = path.join(__dirname, "cache");
 					if (!fs.existsSync(cacheDir)) {
@@ -310,7 +269,6 @@ module.exports = {
 							fs.unlinkSync(imagePath);
 						}
 					} catch (err) {
-						console.error("Failed to load welcome image attachment:", err.message);
 						await message.send(form);
 					}
 
