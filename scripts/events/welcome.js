@@ -9,7 +9,7 @@ if (!global.temp.welcomeMessageID)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.5.2",
+		version: "2.5.3",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -30,7 +30,6 @@ module.exports = {
 			const welcomeID =
 				global.temp.welcomeMessageID[threadID];
 
-			// Only work when replying to bot's welcome message
 			if (
 				welcomeID &&
 				event.messageReply.messageID == welcomeID
@@ -39,7 +38,6 @@ module.exports = {
 					.toLowerCase()
 					.trim();
 
-				// Thanks keywords
 				const thanksWords = [
 					"thanks",
 					"thank",
@@ -64,7 +62,7 @@ module.exports = {
 					return;
 				}
 
-				// If message contains "name" → 🤍 reaction
+				// "name" থাকলে 🤍 reaction
 				if (/\bname\b/i.test(event.body)) {
 					await api.setMessageReaction(
 						"🤍",
@@ -89,11 +87,12 @@ module.exports = {
 		const dataAddedParticipants =
 			event.logMessageData.addedParticipants;
 
-		// Don't send welcome when bot itself is added
+		// Bot নিজে add হলে welcome পাঠাবে না
 		if (
 			dataAddedParticipants.some(
 				user =>
-					user.userFbId == api.getCurrentUserID()
+					String(user.userFbId) ===
+					String(api.getCurrentUserID())
 			)
 		) {
 			return;
@@ -151,38 +150,45 @@ module.exports = {
 					const welcomeNames = [];
 
 					// =================================================
-					// CREATE MENTIONS
+					// CREATE WELCOME USERS
 					// =================================================
 
 					for (const user of participants) {
 
-						// Skip banned users
+						// Banned user skip
 						if (
 							dataBanned.some(
 								item =>
-									item.id ==
-									user.userFbId
+									String(item.id) ===
+									String(user.userFbId)
 							)
 						) {
 							continue;
 						}
 
 						const name =
-							user.fullName;
+							String(user.fullName || "Member");
 
 						const id =
-							user.userFbId;
+							String(user.userFbId);
 
-						/*
-						 * IMPORTANT
-						 *
-						 * @ is only used in body.
-						 * tag MUST NOT contain @.
-						 */
+						// Body-তে @ থাকবে
+						const mentionText =
+							`@${name}`;
 
 						welcomeNames.push(
-							`@${name}`
+							mentionText
 						);
+
+						/*
+						 * IMPORTANT:
+						 *
+						 * tag = name WITHOUT @
+						 * id  = Facebook user ID
+						 *
+						 * fromIndex পরে exact position
+						 * অনুযায়ী set করা হবে.
+						 */
 
 						mentions.push({
 							tag: name,
@@ -205,6 +211,34 @@ module.exports = {
 						`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${welcomeNames.join(", ")}`;
 
 					// =================================================
+					// SET EXACT MENTION POSITION
+					// =================================================
+
+					let searchFrom = 0;
+
+					for (const mention of mentions) {
+
+						const mentionText =
+							`@${mention.tag}`;
+
+						const fromIndex =
+							welcomeText.indexOf(
+								mentionText,
+								searchFrom
+							);
+
+						if (fromIndex !== -1) {
+
+							mention.fromIndex =
+								fromIndex;
+
+							searchFrom =
+								fromIndex +
+								mentionText.length;
+						}
+					}
+
+					// =================================================
 					// WELCOME IMAGE
 					// =================================================
 
@@ -220,7 +254,7 @@ module.exports = {
 						);
 
 					// =================================================
-					// SEND WELCOME WITH ACTIVE MENTION
+					// SEND MESSAGE
 					// =================================================
 
 					const sentMessage =
@@ -231,7 +265,7 @@ module.exports = {
 									{
 										body: welcomeText,
 
-										// Active Facebook mentions
+										// Active mention metadata
 										mentions: mentions,
 
 										attachment:
@@ -243,6 +277,11 @@ module.exports = {
 									(err, info) => {
 
 										if (err) {
+											console.error(
+												"Send welcome error:",
+												err
+											);
+
 											return reject(err);
 										}
 
@@ -253,7 +292,7 @@ module.exports = {
 						);
 
 					// =================================================
-					// SAVE WELCOME MESSAGE ID
+					// SAVE MESSAGE ID
 					// =================================================
 
 					let welcomeMessageID =
@@ -281,6 +320,7 @@ module.exports = {
 					}
 
 					if (welcomeMessageID) {
+
 						global.temp.welcomeMessageID[
 							threadID
 						] = welcomeMessageID;
