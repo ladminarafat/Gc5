@@ -9,7 +9,7 @@ if (!global.temp.welcomeMessageID)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.6.0",
+		version: "2.7.0",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -27,15 +27,19 @@ module.exports = {
 		// =========================================================
 
 		/*
-		 * Only users who were newly added and successfully
-		 * welcomed by this bot will be tracked.
+		 * Only NEWLY ADDED members are saved as "pending".
 		 *
-		 * Existing group members are NOT tracked.
+		 * Existing members are never added automatically.
+		 *
+		 * First message:
+		 * Intro den apner ! 🤍
+		 *
+		 * After that:
+		 * status = true
 		 */
 
 		if (
 			event.senderID &&
-			event.body &&
 			event.logMessageType != "log:subscribe"
 		) {
 			const userID = event.senderID;
@@ -43,7 +47,9 @@ module.exports = {
 
 			// Ignore bot's own messages
 			if (userID != api.getCurrentUserID()) {
+
 				try {
+
 					const introData =
 						await usersData.get(
 							userID,
@@ -51,11 +57,13 @@ module.exports = {
 							{}
 						);
 
-					// New member's first message
 					if (
 						introData &&
 						introData[threadID] === "pending"
 					) {
+
+						// Mark completed BEFORE replying
+						// so it cannot trigger twice
 						introData[threadID] = true;
 
 						await usersData.set(
@@ -65,13 +73,14 @@ module.exports = {
 						);
 
 						await message.reply(
-							"Intro den apner!🤍"
+							"Intro den apner ! 🤍"
 						);
 
 						return;
 					}
 
 				} catch (error) {
+
 					console.error(
 						"Intro system error:",
 						error
@@ -89,16 +98,18 @@ module.exports = {
 			event.messageReply &&
 			event.messageReply.messageID
 		) {
+
 			const threadID = event.threadID;
 
 			const welcomeID =
 				global.temp.welcomeMessageID[threadID];
 
-			// Only work when replying to bot's welcome message
+			// Only work when replying to bot's welcome
 			if (
 				welcomeID &&
 				event.messageReply.messageID == welcomeID
 			) {
+
 				const text = event.body
 					.toLowerCase()
 					.trim();
@@ -117,25 +128,32 @@ module.exports = {
 					"thankyou"
 				];
 
-				const isThanks = thanksWords.some(word =>
-					text.includes(word)
-				);
+				const isThanks =
+					thanksWords.some(word =>
+						text.includes(word)
+					);
 
 				if (isThanks) {
+
 					await message.reply(
 						"Intro den apner ! 🤍"
 					);
+
 					return;
 				}
 
-				// If message contains "name" → 🤍 reaction
-				if (/\bname\b/i.test(event.body)) {
+				// "name" → 🤍 reaction
+				if (
+					/\bname\b/i.test(event.body)
+				) {
+
 					await api.setMessageReaction(
 						"🤍",
 						event.messageID,
 						() => {},
 						true
 					);
+
 					return;
 				}
 			}
@@ -145,25 +163,161 @@ module.exports = {
 		// WELCOME EVENT
 		// =========================================================
 
-		if (event.logMessageType != "log:subscribe")
+		if (
+			event.logMessageType != "log:subscribe"
+		) {
 			return;
+		}
 
 		const { threadID } = event;
 
 		const dataAddedParticipants =
+			event.logMessageData &&
 			event.logMessageData.addedParticipants;
 
-		// Don't send welcome when bot itself is added
+		if (
+			!dataAddedParticipants ||
+			dataAddedParticipants.length === 0
+		) {
+			return;
+		}
+
+		// =========================================================
+		// DON'T WELCOME BOT ITSELF
+		// =========================================================
+
 		if (
 			dataAddedParticipants.some(
 				user =>
-					user.userFbId == api.getCurrentUserID()
+					user.userFbId ==
+					api.getCurrentUserID()
 			)
 		) {
 			return;
 		}
 
-		if (!global.temp.welcomeEvent[threadID]) {
+		// =========================================================
+		// GET THREAD DATA
+		// =========================================================
+
+		let threadData;
+
+		try {
+
+			threadData =
+				await threadsData.get(threadID);
+
+		} catch (error) {
+
+			console.error(
+				"Thread data error:",
+				error
+			);
+
+			return;
+		}
+
+		// =========================================================
+		// CHECK WELCOME SETTING
+		// =========================================================
+
+		if (
+			threadData.settings &&
+			threadData.settings.sendWelcomeMessage === false
+		) {
+			return;
+		}
+
+		const dataBanned =
+			threadData.data?.banned_ban || [];
+
+		// =========================================================
+		// SAVE ONLY NEW MEMBERS AS PENDING
+		// =========================================================
+
+		/*
+		 * IMPORTANT:
+		 *
+		 * This runs ONLY when Facebook sends
+		 * log:subscribe.
+		 *
+		 * So existing group members are NOT touched.
+		 */
+
+		for (
+			const user of dataAddedParticipants
+		) {
+
+			const userID =
+				user.userFbId;
+
+			// Ignore bot
+			if (
+				!userID ||
+				userID == api.getCurrentUserID()
+			) {
+				continue;
+			}
+
+			// Ignore banned users
+			if (
+				dataBanned.some(
+					item =>
+						item.id == userID
+				)
+			) {
+				continue;
+			}
+
+			try {
+
+				const introData =
+					await usersData.get(
+						userID,
+						"welcomeIntro",
+						{}
+					);
+
+				/*
+				 * Don't overwrite an already completed
+				 * user if they are added again.
+				 */
+
+				if (
+					!introData ||
+					!introData[threadID]
+				) {
+
+					const newIntroData =
+						introData || {};
+
+					newIntroData[threadID] =
+						"pending";
+
+					await usersData.set(
+						userID,
+						"welcomeIntro",
+						newIntroData
+					);
+				}
+
+			} catch (error) {
+
+				console.error(
+					"Saving intro status error:",
+					error
+				);
+			}
+		}
+
+		// =========================================================
+		// CREATE WELCOME EVENT
+		// =========================================================
+
+		if (
+			!global.temp.welcomeEvent[threadID]
+		) {
+
 			global.temp.welcomeEvent[threadID] = {
 				joinTimeout: null,
 				dataAddedParticipants: []
@@ -177,48 +331,37 @@ module.exports = {
 		);
 
 		clearTimeout(
-			global.temp.welcomeEvent[threadID].joinTimeout
+			global.temp.welcomeEvent[
+				threadID
+			].joinTimeout
 		);
 
-		global.temp.welcomeEvent[threadID].joinTimeout =
-			setTimeout(async function () {
+		// =========================================================
+		// SEND WELCOME AFTER 1.5 SECOND
+		// =========================================================
+
+		global.temp.welcomeEvent[
+			threadID
+		].joinTimeout = setTimeout(
+			async function () {
 
 				try {
-
-					const threadData =
-						await threadsData.get(threadID);
-
-					// =================================================
-					// CHECK WELCOME SETTING
-					// =================================================
-
-					if (
-						threadData.settings &&
-						threadData.settings
-							.sendWelcomeMessage === false
-					) {
-						delete global.temp.welcomeEvent[
-							threadID
-						];
-						return;
-					}
 
 					const participants =
 						global.temp.welcomeEvent[
 							threadID
 						].dataAddedParticipants;
 
-					const dataBanned =
-						threadData.data?.banned_ban || [];
-
 					const mentions = [];
 					const welcomeNames = [];
 
 					// =================================================
-					// PREPARE MENTIONS
+					// PREPARE ACTIVE MENTIONS
 					// =================================================
 
-					for (const user of participants) {
+					for (
+						const user of participants
+					) {
 
 						// Skip banned users
 						if (
@@ -231,23 +374,45 @@ module.exports = {
 							continue;
 						}
 
-						const name = user.fullName;
-						const id = user.userFbId;
+						const userID =
+							user.userFbId;
 
-						// @ only in message text
-						welcomeNames.push(`@${name}`);
+						const name =
+							user.fullName ||
+							"New Member";
 
-						// @ must NOT be inside tag
+						/*
+						 * Message text
+						 */
+						welcomeNames.push(
+							`@${name}`
+						);
+
+						/*
+						 * IMPORTANT:
+						 *
+						 * tag = name WITHOUT @
+						 * id  = Facebook user ID
+						 *
+						 * This creates the actual
+						 * Facebook mention.
+						 */
+
 						mentions.push({
 							tag: name,
-							id: id
+							id: userID
 						});
 					}
 
-					if (mentions.length === 0) {
-						delete global.temp.welcomeEvent[
-							threadID
-						];
+					if (
+						mentions.length === 0
+					) {
+
+						delete global.temp
+							.welcomeEvent[
+								threadID
+							];
+
 						return;
 					}
 
@@ -259,7 +424,7 @@ module.exports = {
 						`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${welcomeNames.join(", ")}`;
 
 					// =================================================
-					// SAME WELCOME IMAGE
+					// SAME IMAGE
 					// =================================================
 
 					const imageUrl =
@@ -269,145 +434,85 @@ module.exports = {
 						await axios.get(
 							imageUrl,
 							{
-								responseType: "stream"
+								responseType:
+									"stream"
 							}
 						);
 
 					// =================================================
-					// SEND WELCOME
+					// SEND MESSAGE
 					// =================================================
 
 					const sentMessage =
 						await message.send({
 							body: welcomeText,
+
+							/*
+							 * Active Facebook mentions
+							 */
 							mentions: mentions,
-							attachment: response.data
+
+							attachment:
+								response.data
 						});
 
 					// =================================================
-					// SAVE WELCOME MESSAGE ID
+					// GET MESSAGE ID
 					// =================================================
 
-					let welcomeMessageID = null;
+					let welcomeMessageID =
+						null;
 
 					if (
 						sentMessage &&
 						sentMessage.messageID
 					) {
+
 						welcomeMessageID =
 							sentMessage.messageID;
+
 					}
 					else if (
 						sentMessage &&
 						sentMessage.messageId
 					) {
+
 						welcomeMessageID =
 							sentMessage.messageId;
+
 					}
 					else if (
-						typeof sentMessage === "string"
+						typeof sentMessage ===
+						"string"
 					) {
+
 						welcomeMessageID =
 							sentMessage;
 					}
 
-					if (welcomeMessageID) {
-						global.temp.welcomeMessageID[
+					// =================================================
+					// SAVE WELCOME MESSAGE ID
+					// =================================================
+
+					if (
+						welcomeMessageID
+					) {
+
+						global.temp
+							.welcomeMessageID[
+								threadID
+							] =
+							welcomeMessageID;
+					}
+
+					// =================================================
+					// CLEAN TEMP
+					// =================================================
+
+					delete global.temp
+						.welcomeEvent[
 							threadID
-						] = welcomeMessageID;
-					}
-
-					// =================================================
-					// SAVE ONLY NEWLY WELCOMED USERS
-					// =================================================
-
-					/*
-					 * IMPORTANT:
-					 *
-					 * This is done AFTER the welcome message
-					 * is successfully sent.
-					 *
-					 * Therefore:
-					 * - Existing members → NOT tracked
-					 * - New members → tracked
-					 * - Welcome disabled → NOT tracked
-					 * - Banned users → NOT tracked
-					 */
-
-					for (const user of participants) {
-
-						const userID =
-							user.userFbId;
-
-						// Skip bot
-						if (
-							!userID ||
-							userID ==
-								api.getCurrentUserID()
-						) {
-							continue;
-						}
-
-						// Skip banned users
-						if (
-							dataBanned.some(
-								item =>
-									item.id ==
-									userID
-							)
-						) {
-							continue;
-						}
-
-						try {
-
-							const introData =
-								await usersData.get(
-									userID,
-									"welcomeIntro",
-									{}
-								);
-
-							/*
-							 * Only this newly-added
-							 * member gets pending status.
-							 */
-
-							if (
-								!introData ||
-								!introData[threadID]
-							) {
-
-								const newIntroData =
-									introData || {};
-
-								newIntroData[
-									threadID
-								] = "pending";
-
-								await usersData.set(
-									userID,
-									"welcomeIntro",
-									newIntroData
-								);
-							}
-
-						} catch (error) {
-
-							console.error(
-								"Saving intro status error:",
-								error
-							);
-						}
-					}
-
-					// =================================================
-					// CLEAN TEMP DATA
-					// =================================================
-
-					delete global.temp.welcomeEvent[
-						threadID
-					];
+						];
 
 				} catch (error) {
 
@@ -416,11 +521,76 @@ module.exports = {
 						error
 					);
 
-					delete global.temp.welcomeEvent[
-						threadID
-					];
+					/*
+					 * If welcome failed, remove
+					 * pending status for these users
+					 * so they aren't incorrectly
+					 * treated as welcomed.
+					 */
+
+					const participants =
+						global.temp.welcomeEvent[
+							threadID
+						]?.dataAddedParticipants ||
+						[];
+
+					for (
+						const user of participants
+					) {
+
+						try {
+
+							const userID =
+								user.userFbId;
+
+							if (
+								!userID
+							) {
+								continue;
+							}
+
+							const introData =
+								await usersData.get(
+									userID,
+									"welcomeIntro",
+									{}
+								);
+
+							if (
+								introData &&
+								introData[
+									threadID
+								] === "pending"
+							) {
+
+								delete introData[
+									threadID
+								];
+
+								await usersData.set(
+									userID,
+									"welcomeIntro",
+									introData
+								);
+							}
+
+						} catch (e) {
+
+							console.error(
+								"Intro cleanup error:",
+								e
+							);
+						}
+					}
+
+					delete global.temp
+						.welcomeEvent[
+							threadID
+						];
 				}
 
-			}, 1500);
+			},
+			1500
+		);
 	}
 };
