@@ -6,107 +6,90 @@ if (!global.temp.welcomeEvent)
 if (!global.temp.welcomeMessageID)
 	global.temp.welcomeMessageID = {};
 
+if (!global.temp.welcomePending)
+	global.temp.welcomePending = {};
+
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.5.0",
-		author: "ST | Sheikh Tamim",
+		version: "2.6.0",
+		author: "Arafat Hassan",
 		category: "events"
 	},
 
-	onStart: async ({ threadsData, message, event, api }) => {
+	onStart: async ({ threadsData, usersData, message, event, api }) => {
 
-		/*
-		 * =========================================================
-		 * WELCOME REPLY SYSTEM
-		 * =========================================================
-		 */
+		// =====================================================
+		// FIRST MESSAGE → INTRO SYSTEM
+		// =====================================================
 
 		if (
+			event.senderID &&
 			event.body &&
-			event.messageReply &&
-			event.messageReply.messageID
+			event.logMessageType !== "log:subscribe"
 		) {
 			const threadID = event.threadID;
+			const userID = event.senderID;
 
-			const savedWelcomeID =
-				global.temp.welcomeMessageID[threadID];
-
-			// Only work when replying to bot's welcome message
 			if (
-				savedWelcomeID &&
-				event.messageReply.messageID == savedWelcomeID
+				global.temp.welcomePending[threadID] &&
+				global.temp.welcomePending[threadID][userID]
 			) {
-				const text = event.body
-					.toLowerCase()
-					.trim();
+				// Remove from pending first
+				delete global.temp.welcomePending[threadID][userID];
 
-				/*
-				 * Thanks / Thank / Tnks / Tnx / Thx / Ty
-				 */
-				const thanksWords = [
-					"thanks",
-					"thank",
-					"thank you",
-					"tnks",
-					"tnx",
-					"thx",
-					"ty",
-					"thanku",
-					"thankyou"
-				];
+				// Save permanently
+				try {
+					const oldData = await usersData.get(
+						userID,
+						"welcomeIntro",
+						{}
+					);
 
-				const isThanks = thanksWords.some(word =>
-					text.includes(word)
+					oldData[threadID] = true;
+
+					await usersData.set(
+						userID,
+						oldData,
+						"welcomeIntro"
+					);
+				} catch (err) {
+					console.error(
+						"Intro data save error:",
+						err
+					);
+				}
+
+				// Ask for intro
+				await message.reply(
+					"🤍 Intro den apner!"
 				);
 
-				if (isThanks) {
-					await message.reply(
-						"🤍 Intro den apner"
-					);
-					return;
-				}
-
-				/*
-				 * If user writes "name" anywhere
-				 * → react 🤍
-				 */
-				if (/\bname\b/i.test(event.body)) {
-					await api.setMessageReaction(
-						"🤍",
-						event.messageID,
-						(err) => {},
-						true
-					);
-
-					return;
-				}
+				return;
 			}
 		}
 
-		/*
-		 * =========================================================
-		 * WELCOME EVENT
-		 * =========================================================
-		 */
+		// =====================================================
+		// WELCOME EVENT
+		// =====================================================
 
-		if (event.logMessageType != "log:subscribe")
+		if (event.logMessageType !== "log:subscribe")
 			return;
 
-		const { threadID } = event;
+		const threadID = event.threadID;
 
-		const dataAddedParticipants =
+		const addedParticipants =
 			event.logMessageData.addedParticipants;
 
-		// Bot নিজে add হলে welcome পাঠাবে না
+		// Bot নিজে add হলে
 		if (
-			dataAddedParticipants.some(
-				item =>
-					item.userFbId ==
-					api.getCurrentUserID()
+			addedParticipants.some(
+				user =>
+					user.userFbId == api.getCurrentUserID()
 			)
-		)
+		) {
 			return;
+		}
 
 		if (!global.temp.welcomeEvent[threadID]) {
 			global.temp.welcomeEvent[threadID] = {
@@ -118,7 +101,7 @@ module.exports = {
 		global.temp.welcomeEvent[
 			threadID
 		].dataAddedParticipants.push(
-			...dataAddedParticipants
+			...addedParticipants
 		);
 
 		clearTimeout(
@@ -126,12 +109,11 @@ module.exports = {
 		);
 
 		global.temp.welcomeEvent[threadID].joinTimeout =
-			setTimeout(async function () {
+			setTimeout(async () => {
 				try {
 					const threadData =
 						await threadsData.get(threadID);
 
-					// Welcome disabled হলে
 					if (
 						threadData.settings &&
 						threadData.settings
@@ -148,99 +130,125 @@ module.exports = {
 							threadID
 						].dataAddedParticipants;
 
-					const dataBanned =
-						threadData.data?.banned_ban || [];
-
 					const mentions = [];
 					const welcomeNames = [];
 
+					if (!global.temp.welcomePending[threadID]) {
+						global.temp.welcomePending[threadID] = {};
+					}
+
 					for (const user of participants) {
+						const userID = user.userFbId;
+						const name = user.fullName;
 
-						// Banned user skip
-						if (
-							dataBanned.some(
-								item =>
-									item.id ==
-									user.userFbId
-							)
-						)
-							continue;
+						// Check whether user already completed
+						let alreadyDone = false;
 
-						welcomeNames.push(
-							`@${user.fullName}`
-						);
+						try {
+							const introData =
+								await usersData.get(
+									userID,
+									"welcomeIntro",
+									{}
+								);
+
+							if (introData[threadID]) {
+								alreadyDone = true;
+							}
+						} catch (err) {
+							console.error(
+								"Intro data read error:",
+								err
+							);
+						}
+
+						// If not done, wait for first message
+						if (!alreadyDone) {
+							global.temp.welcomePending[
+								threadID
+							][userID] = true;
+						}
+
+						/*
+						 * IMPORTANT:
+						 * @ goes in message text,
+						 * NOT inside mentions.tag
+						 */
+						welcomeNames.push(`@${name}`);
 
 						mentions.push({
-							tag: `@${user.fullName}`,
-							id: user.userFbId
+							tag: name,
+							id: userID
 						});
 					}
 
-					if (mentions.length === 0) {
+					if (!mentions.length) {
 						delete global.temp.welcomeEvent[
 							threadID
 						];
 						return;
 					}
 
-					/*
-					 * Welcome text
-					 */
+					// =================================================
+					// WELCOME TEXT
+					// =================================================
+
 					const welcomeText =
 						`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${welcomeNames.join(", ")}`;
 
-					/*
-					 * Welcome image
-					 */
+					// =================================================
+					// IMAGE
+					// =================================================
+
 					const imageUrl =
 						"https://i.ibb.co/6Jqnd88y/IMG-20260928-165303-402.jpg";
 
-					const response =
-						await axios.get(imageUrl, {
+					const response = await axios.get(
+						imageUrl,
+						{
 							responseType: "stream"
+						}
+					);
+
+					// =================================================
+					// SEND
+					// =================================================
+
+					const sentMessage =
+						await message.send({
+							body: welcomeText,
+							mentions: mentions,
+							attachment: response.data
 						});
 
-					const form = {
-						body: welcomeText,
-						mentions: mentions,
-						attachment: response.data
-					};
+					// Save welcome message ID
+					let welcomeID = null;
 
-					/*
-					 * Send welcome
-					 */
-					const sentMessage =
-						await message.send(form);
-
-					/*
-					 * Save welcome message ID
-					 * so only replies to this message
-					 * trigger the special replies.
-					 */
-					let welcomeMessageID = null;
-
-					if (typeof sentMessage === "string") {
-						welcomeMessageID = sentMessage;
-					}
-					else if (
+					if (
 						sentMessage &&
 						sentMessage.messageID
 					) {
-						welcomeMessageID =
+						welcomeID =
 							sentMessage.messageID;
 					}
 					else if (
 						sentMessage &&
 						sentMessage.messageId
 					) {
-						welcomeMessageID =
+						welcomeID =
 							sentMessage.messageId;
 					}
+					else if (
+						typeof sentMessage === "string"
+					) {
+						welcomeID =
+							sentMessage;
+					}
 
-					if (welcomeMessageID) {
+					if (welcomeID) {
 						global.temp.welcomeMessageID[
 							threadID
-						] = welcomeMessageID;
+						] = welcomeID;
 					}
 
 					delete global.temp.welcomeEvent[
@@ -249,7 +257,7 @@ module.exports = {
 
 				} catch (error) {
 					console.error(
-						"Welcome message error:",
+						"Welcome error:",
 						error
 					);
 
