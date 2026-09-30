@@ -6,7 +6,7 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.81",
+		version: "2.4.82",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -83,12 +83,13 @@ module.exports = {
 							)
 								continue;
 
-							const name = user.fullName;
+							// নাম এবং ট্যাগ উভয়ের সামনে @ যোগ করা হয়েছে
+							const nameWithAt = `@${user.fullName}`;
 
-							welcomeNames.push(name);
+							welcomeNames.push(nameWithAt);
 
 							mentions.push({
-								tag: name,
+								tag: nameWithAt,
 								id: user.userFbId
 							});
 						}
@@ -110,12 +111,12 @@ module.exports = {
 							}
 						);
 
-						// প্রথমে শুধু ছবি পাঠানো
+						// প্রথমে ছবি পাঠানো
 						await message.send({
 							attachment: response.data
 						});
 
-						// এরপর ১ সেকেন্ড পর ১০০% মেনশন নিশ্চিত করে টেক্সট পাঠানো
+						// ১ সেকেন্ড পর @ সহ ট্যাগ ও টেক্সট পাঠানো
 						setTimeout(async () => {
 							await message.send({
 								body: welcomeText,
