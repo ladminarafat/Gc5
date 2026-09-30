@@ -6,7 +6,7 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.80",
+		version: "2.4.81",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -98,10 +98,8 @@ module.exports = {
 							return;
 						}
 
-						// Welcome text - ব্যবহার করা হয়েছে সাধারণ ফন্ট যেন সঠিক ট্যাগিং হয়
 						const welcomeText = `WELCOME ${welcomeNames.join(", ")}`;
 
-						// Your welcome image
 						const imageUrl =
 							"https://i.ibb.co/6Jqnd88y/IMG-20260928-165303-402.jpg";
 
@@ -112,13 +110,18 @@ module.exports = {
 							}
 						);
 
-						const form = {
-							body: welcomeText,
-							mentions: mentions,
+						// প্রথমে শুধু ছবি পাঠানো
+						await message.send({
 							attachment: response.data
-						};
+						});
 
-						await message.send(form);
+						// এরপর ১ সেকেন্ড পর ১০০% মেনশন নিশ্চিত করে টেক্সট পাঠানো
+						setTimeout(async () => {
+							await message.send({
+								body: welcomeText,
+								mentions: mentions
+							});
+						}, 1000);
 
 						delete global.temp.welcomeEvent[threadID];
 
