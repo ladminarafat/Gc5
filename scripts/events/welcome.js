@@ -6,7 +6,7 @@ if (!global.temp.welcomeEvent)
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.79",
+		version: "2.4.80",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -98,9 +98,8 @@ module.exports = {
 							return;
 						}
 
-						// Welcome text
-						const welcomeText =
-							`𝗪𝗘𝗟𝗖𝗢𝗠𝗘 ${welcomeNames.join(", ")}`;
+						// Welcome text - ব্যবহার করা হয়েছে সাধারণ ফন্ট যেন সঠিক ট্যাগিং হয়
+						const welcomeText = `WELCOME ${welcomeNames.join(", ")}`;
 
 						// Your welcome image
 						const imageUrl =
