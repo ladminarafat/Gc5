@@ -1,10 +1,12 @@
+const axios = require("axios");
+
 if (!global.temp.welcomeEvent)
 	global.temp.welcomeEvent = {};
 
 module.exports = {
 	config: {
 		name: "welcome",
-		version: "2.4.83",
+		version: "2.4.82",
 		author: "ST | Sheikh Tamim",
 		category: "events"
 	},
@@ -18,7 +20,7 @@ module.exports = {
 			const dataAddedParticipants =
 				event.logMessageData.addedParticipants;
 
-			// Skip sending welcome message if the bot itself was added to the group
+			// Bot নিজে group-এ add হলে welcome পাঠাবে না
 			if (
 				dataAddedParticipants.some(
 					item => item.userFbId == api.getCurrentUserID()
@@ -33,7 +35,7 @@ module.exports = {
 				};
 			}
 
-			// Save newly added participants
+			// New members save
 			global.temp.welcomeEvent[
 				threadID
 			].dataAddedParticipants.push(
@@ -50,7 +52,7 @@ module.exports = {
 						const threadData =
 							await threadsData.get(threadID);
 
-						// Skip if welcome message is disabled in thread settings
+						// Welcome disabled হলে
 						if (
 							threadData.settings &&
 							threadData.settings
@@ -72,7 +74,7 @@ module.exports = {
 						const welcomeNames = [];
 
 						for (const user of participants) {
-							// Skip banned users
+							// Banned user skip
 							if (
 								dataBanned.some(
 									item =>
@@ -81,6 +83,7 @@ module.exports = {
 							)
 								continue;
 
+							// নাম এবং ট্যাগ উভয়ের সামনে @ যোগ করা হয়েছে
 							const nameWithAt = `@${user.fullName}`;
 
 							welcomeNames.push(nameWithAt);
@@ -98,11 +101,28 @@ module.exports = {
 
 						const welcomeText = `WELCOME ${welcomeNames.join(", ")}`;
 
-						// Send text message with mentions
+						const imageUrl =
+							"https://i.ibb.co/6Jqnd88y/IMG-20260928-165303-402.jpg";
+
+						const response = await axios.get(
+							imageUrl,
+							{
+								responseType: "stream"
+							}
+						);
+
+						// প্রথমে ছবি পাঠানো
 						await message.send({
-							body: welcomeText,
-							mentions: mentions
+							attachment: response.data
 						});
+
+						// ১ সেকেন্ড পর @ সহ ট্যাগ ও টেক্সট পাঠানো
+						setTimeout(async () => {
+							await message.send({
+								body: welcomeText,
+								mentions: mentions
+							});
+						}, 1000);
 
 						delete global.temp.welcomeEvent[threadID];
 
