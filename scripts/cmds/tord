@@ -1,0 +1,438 @@
+const fs = require("fs-extra");
+const path = require("path");
+
+// Array shuffle function (Fisher-Yates)
+function shuffleArray(array) {
+	const arr = [...array];
+	for (let i = arr.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[arr[i], arr[j]] = [arr[j], arr[i]];
+	}
+	return arr;
+}
+
+const rawTruthQuestions = [
+	// Banglish Questions
+	"Tomar shobcheye boro secret ki?",
+	"Tomar shobcheye boro voy ki?",
+	"Jibone shobcheye beshi kake trust koro?",
+	"Kokhono best friend-er kache kono kotha lukiecho?",
+	"Tomar shobcheye embarrassing moment konta?",
+	"Kar sathe shobcheye beshi kotha bolte bhalo lage?",
+	"Kokhono karo upor crush chilo?",
+	"Tomar first crush ke chilo?",
+	"Kokhono bondhur upor rag kore kotha bola bondho korecho?",
+	"Tomar shobcheye kharap obbhash ki?",
+	"Nijer kon dikta tumi change korte chao?",
+	"Kokhono miththa bole dhora porecho?",
+	"Sheshbar kobe kedechile?",
+	"Tomar shobcheye priyo memory konta?",
+	"Emon kono kotha ache ja kauke bolte paroni?",
+	"Tomar shobcheye boro dream ki?",
+	"Kon bondhuke shobcheye beshi miss koro?",
+	"Kokhono karo message seen kore ichcha kore reply dao ni?",
+	"Tomar shobcheye funny memory konta?",
+	"Kokhono vul manushke message pathiyecho?",
+	"Tomar shobcheye priyo manush ke?",
+	"Kar personality tomar shobcheye bhalo lage?",
+	"Kokhono kauke secretly admire korecho?",
+	"Tomar shobcheye boro regret ki?",
+	"Kokhono bondhur secret onno kauke bolecho?",
+	"Tomar favourite movie ba series konta?",
+	"Tomar shobcheye priyo gaan konta?",
+	"Kon jinish chara ekdin-o thakte kosto hobe?",
+	"Kokhono kono bondhur upor jealous hoyecho?",
+	"Tomar shobcheye crazy idea ki chilo?",
+	"Kokhono kauke vul bujhecho?",
+	"Tomar jiboner shobcheye memorable day konta?",
+	"Kon bondhur sathe shobcheye beshi moja koro?",
+	"Kokhono nijer vul onno karo upor chapiecho?",
+	"Tomar shobcheye awkward conversation konta?",
+	"Tumi beshi introvert naki extrovert?",
+	"Kokhono karo profile secretly check korecho? 😆",
+	"Tomar shobcheye pochonder compliment ki?",
+	"Kokhono kono bondhur birthday vule gecho?",
+	"Tomar kache friendship-er shobcheye important bishoy ki?",
+	"Kokhono karo jonno nijer plan change korecho?",
+	"Tomar nijer kon bishoyta niye shobcheye beshi chinta hoy?",
+	"Kon boyosher shomoyta abar fire pete chaibe?",
+	"Tomar jiboner shobcheye funny lie ki?",
+	"Kokhono karo sathe first dekha-te vul impression hoyechilo?",
+	"Tomar shobcheye unusual habit ki?",
+	"Jodi ekta wish puron hoto, ki chaite?",
+	"Emon kon jaygay jete chao jekhane ekhono jao ni?",
+	"Tomar somporke manush shadharonoto kon bishoyta vul bhabe?",
+	"Ei muhurte tomar mone shobcheye beshi ki cholche? 😄",
+
+	// Bangla Questions
+	"তোমার জীবনের সবচেয়ে বড় সিক্রেট কি?",
+	"তোমার জীবনের সবচেয়ে বড় ভয় কোনটা?",
+	"এই মুহূর্তে কাকে সবচেয়ে বেশি ট্রাস্ট করো?",
+	"কখনো বেস্ট ফ্রেন্ডের কাছে কোনো কথা লুকিয়েছো?",
+	"তোমার লাইফের সবচেয়ে বিব্রতকর (embarrassing) মুহূর্ত কোনটা?",
+	"কার সাথে সবচেয়ে বেশি কথা বলতে ভালো লাগে?",
+	"এখনো পর্যন্ত কার ওপর সবচেয়ে বড় ক্রাশ ছিল?",
+	"তোমার প্রথম ক্রাশ কে ছিল?",
+	"কখনো বন্ধুর ওপর রাগ করে না জানিয়ে কথা বলা বন্ধ করেছো?",
+	"তোমার সবচেয়ে খারাপ অভ্যাস কি?",
+	"নিজের কোন দিকটা তুমি বদলে ফেলতে চাও?",
+	"কখনো মিথ্যা বলে ধরা পড়েছো?",
+	"শেষবার কবে কেঁদেছিলে এবং কেন?",
+	"তোমার জীবনের সবচেয়ে প্রিয় মেমোরি কোনটা?",
+	"এমন কোনো কথা আছে যা আজ পর্যন্ত কাউকে বলতে পারোনি?",
+	"তোমার জীবনের সবচেয়ে বড় ড্রিম কি?",
+	"কোন বন্ধুকে এখন সবচেয়ে বেশি মিস করো?",
+	"কখনো কারো মেসেজ সিন করে ইচ্ছে করে রিপ্লাই দাওনি?",
+	"তোমার লাইফের সবচেয়ে ফানি মেমোরি কোনটা?",
+	"কখনো ভুল মানুষকে ভুল মেসেজ পাঠিয়ে বিপদে পড়েছো?",
+	"তোমার জীবনের সবচেয়ে প্রিয় মানুষ কে?",
+	"গ্রুপের কার পার্সোনালিটি তোমার সবচেয়ে ভালো লাগে?",
+	"কখনো কাউকে সিক্রেটলি এডমায়ার বা পছন্দ করেছো?",
+	"তোমার জীবনের সবচেয়ে বড় অনুশোচনা (regret) কি?",
+	"কখনো বন্ধুর সিক্রেট অন্য কাউকে বলে দিয়েছো?",
+	"তোমার ফেভারিট মুভি বা সিরিজ কোনটা?",
+	"তোমার সবচেয়ে প্রিয় গান কোনটা?",
+	"কোন জিনিসটা ছাড়া একদিনও থাকা তোমার জন্য কঠিন?",
+	"কখনো কোনো বন্ধুর ওপর হিংসা বা জেলাস হয়েছো?",
+	"তোমার মাথার সবচেয়ে ক্রেজি আইডিয়া কি ছিল?",
+	"কখনো কাউকে খুব মারাত্মক ভুল বুঝেছো?",
+	"তোমার জীবনের সবচেয়ে মেমোরেবল দিন কোনটা?",
+	"কোন বন্ধুর সাথে সবচেয়ে বেশি মজা বা দুষ্টুমি করো?",
+	"কখনো নিজের ভুল অন্য কারো ওপর চাপিয়ে দিয়েছো?",
+	"তোমার জীবনের সবচেয়ে অকওয়ার্ড কনভারসেশন কোনটা ছিল?",
+	"তুমি কি বেশি ইন্ট্রোভার্ট নাকি এক্সট্রোভার্ট?",
+	"কখনো কারো প্রোফাইল সিক্রেটলি বারবার চেক করেছো?",
+	"তোমার সবচেয়ে পছন্দের প্রশংসা (compliment) কি ছিল?",
+	"কখনো কোনো বন্ধুর বার্থডে একদম ভুলে গেছো?",
+	"তোমার কাছে ফ্রেন্ডশিপের সবচেয়ে ইম্পর্টেন্ট বিষয় কি?",
+	"কখনো কারো জন্য নিজের ইম্পর্টেন্ট প্ল্যান ক্যানসেল করেছো?",
+	"তোমার নিজের কোন বিষয় নিয়ে সবচেয়ে বেশি চিন্তা হয়?",
+	"কোন বয়সের সময়টায় আবার ফিরে যেতে চাইবে?",
+	"তোমার জীবনের সবচেয়ে ফানি মিথ্যা কথা কোনটা?",
+	"কখনো কারো সাথে ফার্স্ট দেখাতেই ভুল ইমপ্রেশন হয়েছিল?",
+	"তোমার সবচেয়ে আনইউজুয়াল বা অদ্ভুত অভ্যাস কি?",
+	"যদি একটা উইশ পূরণ হতো, আজকে কি চাইতে?",
+	"এমন কোনো জায়গায় যেতে চাও যেখানে এখনো যাওয়া হয়নি?",
+	"তোমার সম্পর্কে মানুষ সাধারণত কোন বিষয়টায় ভুল ধারণা রাখে?",
+	"এই মুহূর্তে তোমার মনে সবচেয়ে বেশি কি চলছে?",
+
+	// English Questions
+	"What is the biggest lie you have ever told without getting caught?",
+	"Who was your very first crush, and do they know?",
+	"What is your biggest fear that you rarely talk about?",
+	"What is the most embarrassing thing you've ever done in public?",
+	"Have you ever cheated on a test or exam?",
+	"What is one secret you’ve kept from your parents?",
+	"Have you ever stalked an ex or crush on social media?",
+	"What is the worst habit you secretly have?",
+	"If you could trade lives with anyone in this group for a day, who would it be?",
+	"What is the biggest regret of your life so far?",
+	"Have you ever pretended to like a gift you actually hated?",
+	"What is the most awkward text message you've sent by mistake?",
+	"Have you ever lied to get out of hanging out with friends?",
+	"What is your biggest insecurity?",
+	"What is the childish thing you still do to this day?",
+	"Have you ever had a crush on a friend’s partner?",
+	"What is something you are deeply passionate about but don't show often?",
+	"What is the most expensive thing you bought and instantly regretted?",
+	"Have you ever broken a promise you made to someone important?",
+	"What is the worst date or hangout experience you’ve ever had?",
+	"Who in this group do you think is the best listener?",
+	"Have you ever muted or blocked someone in this group?",
+	"What is one thing you wish you could change about your appearance?",
+	"What is the weirdest dream you’ve ever had?",
+	"Have you ever laughed at a moment when you were supposed to be serious?",
+	"What is the most useless talent you possess?",
+	"What is one thing you can't live without for even 24 hours?",
+	"Have you ever overheard someone talking bad about you?",
+	"Who is the last person you searched for on Facebook or Instagram?",
+	"What is your biggest pet peeve in a relationship or friendship?",
+	"Have you ever stolen something, even if it was very small?",
+	"What is the longest time you’ve gone without taking a shower?",
+	"What is a boundary you will never let anyone cross?",
+	"Have you ever fallen in love at first sight?",
+	"What is the most spontaneous thing you have ever done?",
+	"What is one bad experience that actually made you a stronger person?",
+	"What is your guilty pleasure TV show or song?",
+	"Have you ever sent a message to the wrong person that caused drama?",
+	"What is the nicest thing anyone has ever done for you?",
+	"If you had to delete all social media except one, which one would you keep?",
+	"What is your opinion on second chances in friendships?",
+	"Have you ever blamed a pet or someone else for a mess you made?",
+	"What is one rule you love breaking?",
+	"Who is the person you trust most in your life right now?",
+	"What is a habit of yours that annoys other people?",
+	"Have you ever cried while watching a movie or cartoon?",
+	"What is the most awkward compliment you've ever received?",
+	"If you could erase one memory from your mind, what would it be?",
+	"What is something you are proud of but never brag about?",
+	"What is the ultimate goal you want to achieve this year?"
+];
+
+const rawDareQuestions = [
+	// Banglish Questions
+	"Ekhoni tomar gallery-r shesh chobi ta dekhao 📸",
+	"Ekjon bondhuke call kore bolo “Toke onek miss kori” 😂",
+	"Group-e ekta funny selfie pathao 🤳",
+	"Tomar favourite gaaner ekta line voice-e gao 🎤",
+	"Ekjon bondhuke 3ta genuine compliment dao 💖",
+	"30 second chup kore serious face kore thako 😐",
+	"Tomar naam ulta kore bolo 😆",
+	"Ekta funny emoji diye tomar current mood explain koro 😂",
+	"Group-e “Ami ajke onek innocent” likhe pathao 😇",
+	"Ekjon bondhur naam niye ekta funny rhyme banao 😆",
+	"10 second-er jonno robot-er moto kotha bolo 🤖",
+	"Tomar last used emoji diye ekta sentence banao 😂",
+	"Ekta animal-er sound imitate koro 🐱",
+	"Ekjon bondhuke “Tumi amar favourite human” bolo 😭",
+	"Tomar favourite movie-r ekta scene act kore dekhao 🎬",
+	"30 second dance koro 💃",
+	"Ekta funny nickname nijer jonno choose koro 😎",
+	"Tomar phone-er wallpaper dekhao 📱",
+	"Ekjon bondhuke ekta wholesome message pathao 🤍",
+	"Ekta random word niye 10 second-er speech dao 😂",
+	"Tomar favourite character-er moto kotha bolo 🎭",
+	"Ekta funny face kore selfie nao 🤪",
+	"Group-e shobcheye beshi use kora emoji ta diye 5ta message dao 😂",
+	"Ekjon bondhuke “Tumi ajke onek smart lagcho” bolo 😆",
+	"20 second chokh bondho kore ekta gaan gao 🎤",
+	"Tomar favourite food-er acting kore dekhao 🍕😂",
+	"Ekta imaginary product-er advertisement banao 📢",
+	"Tomar nijer ekta funny dialogue banao 😭",
+	"Ekjon bondhur naam niye chotto ekta kobita banao ✍",
+	"1 minute shudhu emoji diye reply dao 😆",
+	"Tomar favourite cartoon character-er voice imitate koro 🎭",
+	"Ekta random pose diye photo nao 📸",
+	"Ekjon bondhuke ekta motivational message dao 💪",
+	"Tomar favourite game niye 20 second kotha bolo 🎮",
+	"Ekta funny tongue twister 3 bar bolo 😂",
+	"Group-e “Ami challenge accept korechi” likhe dao 🔥",
+	"Ekjon bondhuke ekta funny question koro 😆",
+	"10 second-er jonno news reporter-er moto kotha bolo 📰",
+	"Tomar room-er ekta random object niye advertisement banao 😂",
+	"Ekta imaginary award ceremony act koro 🏆",
+	"Ekjon bondhuke ekta cute nickname dao 🫶",
+	"Tomar favourite song-er tune hum koro 🎶",
+	"15 second statue-er moto dariye thako 🗿",
+	"Ekta funny story nijer moto kore banao 😂",
+	"Tomar favourite food niye 3ta reason bolo 🍔",
+	"Ekjon bondhuke thank you message pathao 🤍",
+	"Tomar nijer ekta superhero name banao 🦸",
+	"20 second comedian-er moto kotha bolo 🎤",
+	"Ekta random emoji choose kore tar meaning explain koro 😂",
+	"Last-e bolo: “Ami Dare complete korechi!” 🔥",
+
+	// Bangla Questions
+	"এখনি তোমার গ্যালারির শেষ ছবিটা গ্রুপে শেয়ার করো 📸",
+	"একজন বন্ধুকে কল করে বলো “তোকে অনেক মিস করছি” 😂",
+	"গ্রুপে একটা ফানি সেলফি তুলে পাঠাও 🤳",
+	"তোমার ফেভারিট গানের একটা লাইন ভয়েস মেসেজে গেয়ে পাঠাও 🎤",
+	"গ্রুপের যেকোনো একজনকে ৩টা মন থেকে কমপ্লিমেন্ট দাও 💖",
+	"৩০ সেকেন্ডের একটা নীরবতার ভয়েস পাঠাও 😐",
+	"তোমার নাম উল্টো করে ভয়েস বা টেক্সটে বলো 😆",
+	"একটা ফানি ইমোজি দিয়ে তোমার কারেন্ট মুড ডেসক্রাইব করো 😂",
+	"গ্রুপে “আমি আজকে অনেক ইনোসেন্ট” লিখে পাঠাও 😇",
+	"গ্রুপের যেকোনো একজন বন্ধুর নাম নিয়ে একটা ফানি ছড়া বানাও 😆",
+	"১০ সেকেন্ডের জন্য রোবটের মতো ভয়েস মেসেজ পাঠাও 🤖",
+	"তোমার লাস্ট ইউজ করা ৩টা ইমোজি দিয়ে একটা সেন্টেন্স বানাও 😂",
+	"একটা পশুর ডাক ডেকে ভয়েস মেসেজ পাঠাও 🐱",
+	"গ্রুপের একজনকে “তুমি আমার ফেভারিট হিউম্যান” টেক্সট করো 😭",
+	"তোমার ফেভারিট মুভির একটা জনপ্রিয় ডায়লগ ভয়েসে বলো 🎬",
+	"তোমার ফোনের কারেন্ট ওয়ালপেপার স্ক্রিনশট দিয়ে দেখাও 📱",
+	"একজন বন্ধুকে একটা সুন্দর ও কিউট মেসেজ পাঠাও 🤍",
+	"একটা র্যান্ডম শব্দ নিয়ে ১০ সেকেন্ডের একটা ফেক স্পিচ দাও 😂",
+	"তোমার ফেভারিট কার্টুন ক্যারেক্টারের মতো কথা বলো 🎭",
+	"একটা ফানি ফেস করে সেলফি তুলে গ্রুপে দাও 🤪",
+	"গ্রুপে সবচেয়ে বেশি ইউজ করা ইমোজিটা দিয়ে ৫টা ব্যাক-টু-ব্যাক মেসেজ দাও 😂",
+	"একজন বন্ধুকে “তুমি আজকে অনেক স্মার্ট লাগছো” টেক্সট করো 😆",
+	"২০ সেকেন্ড চোখ বন্ধ করে একটা গান গাওয়ার ভয়েস দাও 🎤",
+	"তোমার প্রিয় খাবারের এক্টিং করে ১০ সেকেন্ডের ভয়েস দাও 🍕😂",
+	"একটা কাল্পনিক প্রোডাক্টের অদ্ভুত বিজ্ঞাপন বানিয়ে বলো 📢",
+	"নিজের বানানো একটা ফানি ডায়লগ লিখে পাঠাও 😭",
+	"গ্রুপের একজন বন্ধুর নাম নিয়ে ছোট একটা কবিতা লিখে পাঠাও ✍️",
+	"পরবর্তী ১ মিনিট শুধু ইমোজি দিয়ে রিপ্লাই দাও 😆",
+	"একটা র্যান্ডম পোজ দিয়ে ফটো তুলে পাঠাও 📸",
+	"গ্রুপের একজনকে একটা ইন্সপায়ারিং মোটিভেশনাল মেসেজ দাও 💪",
+	"তোমার প্রিয় গেম নিয়ে ২০ সেকেন্ড একনাগাড়ে কথা বলো 🎮",
+	"একটা কঠিন টাং টুইস্টার (Tongue Twister) ৩ বার স্পিডে ভয়েসে বলো 😂",
+	"গ্রুপে “আমি চ্যালেঞ্জ এক্সেপ্ট করেছি!” লিখে পোস্ট করো 🔥",
+	"গ্রুপের কাউকে একটা একদম অদ্ভুত বা ফানি প্রশ্ন করো 😆",
+	"১০ সেকেন্ডের জন্য নিউজরিপোর্টারের মতো স্পিডে কথা বলো 📰",
+	"তোমার রুমের একটা র্যান্ডম অবজেক্টের প্রশংসায় ২ লাইন বলো 😂",
+	"একটি অবাস্তব অ্যাওয়ার্ড গ্রহণের ফেক স্পিচ দাও 🏆",
+	"গ্রুপের যেকোনো একজনকে একটা কিউট নিকনেম দাও 🫶",
+	"তোমার প্রিয় গানের সুর শুধু শিষ দিয়ে বা ভয়েসে গুনগুন করো 🎶",
+	"একটা ফানি স্টোরি বানিয়ে ১ লাইনে বলো 😂",
+	"তোমার ফেভারিট ফুড কোনটা এবং কেন ৩টা রিজন দাও 🍔",
+	"গ্রুপের কাউকে একটা সুন্দর থ্যাংক ইউ মেসেজ পাঠাও 🤍",
+	"নিজের জন্য একটা পাওয়ারফুল সুপারহিরো নেম বানিয়ে বলো 🦸",
+	"২০ সেকেন্ড স্ট্যান্ডআপ কমেডিয়ানদের মতো জোকস বলো 🎤",
+	"যেকোনো একটা র্যান্ডম ইমোজি চুজ করে তার নিজের মতো মিনিং বলো 😂",
+	"গ্রুপে বলো: “আমি সাকসেসফুলি ডেয়ার কমপ্লিট করেছি!” 🔥",
+	"তোমার প্রোফাইল পিকচার ১০ মিনিটের জন্য পরিবর্তন করে একটা ফানি ছবি দাও 😜",
+	"তোমার ব্যাটারির পার্সেন্টেজ কত তা স্ক্রিনশট নিয়ে গ্রুপে দেখাও 🔋",
+	"তোমার ইনস্টাগ্রাম বা ফেসবুকের লাস্ট সার্চ হিস্ট্রির স্ক্রিনশট দাও 🔍",
+	"তোমার রিসেন্ট কল হিস্ট্রির একটা স্ক্রিনশট মেসেজে পাঠাও 📞",
+
+	// English Questions
+	"Send a voice message whispering your favorite movie line 🤫",
+	"Text your crush or close friend 'I need to tell you a secret...' and don't reply for 2 minutes 😈",
+	"Change your group nickname to 'The Mastermind' for the rest of the day 👑",
+	"Send the 5th photo from your photo gallery in the chat without context 📸",
+	"Type a sentence using only your nose and send it here 👃",
+	"Do 10 pushups or jumping jacks and send a short audio/video proof 💪",
+	"Speak in an accent (British, Country, or Anime) in a 15-second voice note 🗣️",
+	"Send a screenshot of your phone's home screen right now 📲",
+	"Send a compliment to the person who messaged right before you in the group 🌟",
+	"Text a random emoji to 3 people in your recent chat list and screenshot their reactions 🤳",
+	"Sing the chorus of 'Happy Birthday' as dramatically as possible in a voice message 🎶",
+	"Tell a 30-second horror story in a serious voice note 👻",
+	"Confess your most embarrassing childhood moment in 3 sentences 🙈",
+	"Send a screenshot of your screen time usage for today ⏱️",
+	"Send a message saying 'I have been converted to an alien' to a random chat 👽",
+	"Send a picture of the object directly to your left right now 👈",
+	"Attempt to whistle a full song in a voice note 🎵",
+	"Write a short, dramatic 3-line breakup letter to a piece of food 🍕",
+	"Rate everyone currently active in this chat on a scale of 1 to 10 for humor 😜",
+	"Send a voice note acting like a sports commentator describing yourself making tea or coffee 🎙️",
+	"Text 'Are you mad at me?' to your best friend and post their reaction screenshot 😳",
+	"Try to make the group laugh with a single joke (voice note or text) 🤣",
+	"Share the last song you played on Spotify/YouTube/Apple Music 🎧",
+	"Send a photo of your shoes right now 👟",
+	"Say 'I am the greatest' in 3 different languages in a voice message 🌍",
+	"Send a message to the group with every word capitalized Like This For The Next 3 Messages 🔠",
+	"Send a voice note crying dramatically for no reason for 5 seconds 😭",
+	"Describe your personality using only 3 emojis 🎨",
+	"Send a text saying 'I know what you did last summer' to a group member 🤫",
+	"Post a status/story on social media saying 'I love pineapples on pizza' for 1 hour 🍕",
+	"Show a screenshot of your Spotify/YouTube search history 📱",
+	"Send a voice message imitating a famous celebrity 🌟",
+	"Ask someone in the group a deep philosophical question out of nowhere 🤔",
+	"Change your profile picture to a picture of a potato for 10 minutes 🥔",
+	"Talk continuously for 20 seconds without pausing or taking a breath in a voice note ⏱️",
+	"Send a screenshot of your most frequently used apps chart 📈",
+	"Recite the alphabet backward as fast as you can in a voice note 🅰️",
+	"Send a message using ONLY capital letters for the next 5 minutes 📢",
+	"Send a cute baby picture of yourself if you have one on your phone 👶",
+	"Send a voice note pretending to be a cat asking for food 🐱",
+	"Send a screenshot of your current music playlist 🎵",
+	"Text the group leader a dramatic thank-you note 🙇",
+	"Describe your day so far using only movie titles 🎬",
+	"Send a funny voice note doing a villain laugh 🦹‍♂️",
+	"Send a photo of your workspace or desk layout 💻",
+	"Compliment 3 different people in the group for something unique about them 💖",
+	"Send an audio recording of you trying to speak without moving your lips 🤐",
+	"Send a message using rhyming words only for your next 2 responses 📝",
+	"Admit one funny thing you did this week that nobody knows about 🤫",
+	"Send a voice message concluding with: 'Mission accomplished, over and out!' 🚀"
+];
+
+// কোড লোড হওয়ামাত্রই প্রশ্নগুলো পুরোপুরি র‍্যান্ডম হয়ে যাবে
+const truthQuestions = shuffleArray(rawTruthQuestions);
+const dareQuestions = shuffleArray(rawDareQuestions);
+
+module.exports = {
+	config: {
+		name: "tord",
+		version: "2.3",
+		author: "NTKhang / Customized",
+		countDown: 5,
+		role: 0,
+		description: {
+			en: "Truth or Dare game with fully randomized multi-language questions"
+		},
+		category: "game",
+		guide: {
+			en: "{pn} or {pn} ev"
+		}
+	},
+
+	aliases: ["tod", "t or d"],
+
+	onStart: async function ({ api, event, args, message }) {
+		return this.ST({ api, event, args, message });
+	},
+
+	ST: async function ({ api, event, args }) {
+		const { participantIDs, threadID, messageID, senderID } = event;
+
+		const isEv = args && args[0] && args[0].toLowerCase() === "ev";
+
+		let body = "T or D\nReply T or D";
+		let mentions = [];
+
+		if (isEv) {
+			if (!participantIDs || participantIDs.length === 0) {
+				return api.sendMessage("❌ Group members not found.", threadID, messageID);
+			}
+			const tagText = "@everyone";
+			body = `${tagText}\nT or D\nReply T or D`;
+			mentions = participantIDs.map(uid => ({
+				tag: tagText,
+				id: uid,
+				fromIndex: 0
+			}));
+		}
+
+		const sentMessage = await api.sendMessage({ body, mentions }, threadID, messageID);
+
+		if (sentMessage && sentMessage.messageID) {
+			if (!global.GoatBot) global.GoatBot = {};
+			if (!global.GoatBot.onReply) global.GoatBot.onReply = new Map();
+
+			const replyData = {
+				commandName: "tord",
+				threadID: threadID,
+				messageID: sentMessage.messageID,
+				author: senderID
+			};
+
+			if (typeof global.GoatBot.onReply.set === "function") {
+				global.GoatBot.onReply.set(sentMessage.messageID, replyData);
+			} else {
+				global.GoatBot.onReply[sentMessage.messageID] = replyData;
+			}
+		}
+	},
+
+	onReply: async function ({ api, event, Reply }) {
+		if (event.threadID !== Reply.threadID) return;
+
+		const input = event.body.trim().toLowerCase();
+
+		let type = null;
+		if (/^t(\s|[\p{Extended_Pictographic}]|$)|^\btruth\b/u.test(input)) {
+			type = "truth";
+		} else if (/^d(\s|[\p{Extended_Pictographic}]|$)|^\bdare\b/u.test(input)) {
+			type = "dare";
+		}
+
+		if (!type) return;
+
+		const questions = type === "truth" ? truthQuestions : dareQuestions;
+		const dataFile = path.join(__dirname, "../data/tod.json");
+
+		let data = {};
+
+		if (await fs.pathExists(dataFile)) {
+			try {
+				data = await fs.readJson(dataFile);
+			} catch {
+				data = {};
+			}
+		}
+
+		if (!data[event.threadID]) {
+			data[event.threadID] = { truth: [], dare: [] };
+		}
+
+		let used = data[event.threadID][type] || [];
+		let available = questions.map((_, index) => index).filter(index => !used.includes(index));
+
+		if (available.length === 0) {
+			used = [];
+			available = questions.map((_, index) => index);
+		}
+
+		// এলোমেলো প্রশ্ন নির্বাচন
+		const selectedIndex = 
