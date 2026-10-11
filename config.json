@@ -2,7 +2,7 @@
   "mainThreadId": "61594453285694",
   "notesMainThreadId": "MANDATORY: Set your main thread ID here. Use the 'tid' command to get your thread ID, then paste it here and restart the bot.",
   "botAccount": {
-    "email": "gedik18277@cwsgear.com",
+    "email": "bered90239@copytosh.com",
     "password": "botaccount12@@",
     "twoFactorCode": "",
     "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6.2 Safari/605.1.15",
@@ -12,8 +12,8 @@
   "twoIdMode": {
     "enable": false,
     "secondaryAccount": {
-      "email": "",
-      "password": "",
+      "email": "rokajo4032@copytosh.com",
+      "password": "botacccount12@@@@",
       "twoFactorCode": "",
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6.2 Safari/605.1.15"
     },
@@ -27,8 +27,8 @@
     "notes": "Bio update system. When enabled, bot will update user bio on startup. If updateOnce is true, bio will only be updated once and not on every restart. Leave bioText empty to disable."
   },
   "antiInbox": true,
-  "nickNameBot": "HI NA TA",
-  "prefix": ".",
+  "nickNameBot": "Meu Chan",
+  "prefix": "!",
   "usePrefix": {
     "enable": true,
     "adminUsePrefix": {
@@ -40,7 +40,9 @@
     "enable": false,
     "ignoreCommand": []
   },
-  "adminBot": ["61594453285694"],
+  "adminBot": [
+    "61594453285694"
+  ],
   "whiteListMode": {
     "enable": false,
     "whiteListIds": [],
@@ -183,7 +185,7 @@
     "notes": "If enabled, bot will unsend BOT MESSAGES when admins react with unsend emojis, and remove users when admins react with remove emoji. Only works for bot admins."
   },
   "hideNotiMessage": {
-    "commandNotFound": false,
+    "commandNotFound": true,
     "adminOnly": false,
     "threadBanned": false,
     "userBanned": false,
