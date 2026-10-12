@@ -64,13 +64,30 @@ async function recordActivity({
   }
 
   const senderID = getSenderID(event);
-
   if (!senderID) return;
+
+  const body =
+    typeof event.body === "string"
+      ? event.body
+      : "";
+
+  const attachments = Array.isArray(event.attachments)
+    ? event.attachments
+    : [];
+
+  if (
+    !body.trim() &&
+    attachments.length === 0 &&
+    !event.messageID
+  ) {
+    return;
+  }
 
   const threadID = String(event.threadID);
   const uid = String(senderID);
 
   const botID =
+    api &&
     typeof api.getCurrentUserID === "function"
       ? String(api.getCurrentUserID())
       : "";
@@ -101,26 +118,7 @@ async function recordActivity({
     );
   } catch (error) {
     console.error(
-      "[list] Save error:",
-      error
-    );
-    return;
-  }
-
-  try {
-    if (
-      typeof api.setMessageReaction === "function"
-    ) {
-      api.setMessageReaction(
-        "🪶",
-        event.messageID,
-        () => {},
-        true
-      );
-    }
-  } catch (error) {
-    console.error(
-      "[list] Reaction error:",
+      "[list] Could not save activity:",
       error
     );
   }
@@ -130,17 +128,17 @@ module.exports = {
   config: {
     name: "list",
     aliases: ["memberlist", "uidlist"],
-    version: "1.4.0",
+    version: "1.2.1",
     author: "ChatGPT",
     countDown: 5,
     role: 0,
     description:
-      "Track group activity and list member UIDs",
+      "Track group activity and list active/inactive member UIDs",
     category: "box chat",
     guide: {
       en:
-        "{pn} mm - Show member activity list\n" +
-        "{pn} kill - Remove members not yet detected"
+        "{pn} mm - Show active/inactive UID list\n" +
+        "{pn} kill - Remove members with no recorded message"
     }
   },
 
@@ -152,10 +150,11 @@ module.exports = {
     threadsData
   }) {
     const threadID = String(event.threadID);
-    const prefix = getPrefix(threadID);
     const action = String(
       args[0] || ""
     ).toLowerCase();
+
+    const prefix = getPrefix(threadID);
 
     const tracker = await readTracker(
       threadsData,
@@ -164,7 +163,7 @@ module.exports = {
 
     const activeMap = tracker.active;
 
-    if (action === "mm") {
+    if (["mm", "list", "active"].includes(action)) {
       const info = await api.getThreadInfo(
         threadID
       );
@@ -226,7 +225,7 @@ module.exports = {
         "",
         "━━━━━━━━━━━━━━━━━━",
         "🤖 BOT ACTIVITY REPORT",
-        `⏱️ Bot Active Time: ${totalHours} hours ${totalMinutes} minutes`,
+        `⏱️ Tracking Time: ${totalHours} hours ${totalMinutes} minutes`,
         `🎯 Total Members Detected: ${detectedCount}`,
         "━━━━━━━━━━━━━━━━━━"
       ];
@@ -277,13 +276,13 @@ module.exports = {
 
       if (!targets.length) {
         return message.reply(
-          "✅ No undetected members found."
+          "✅ No untracked members to remove."
         );
       }
 
       await message.reply(
-        `⚠️ ${targets.length} members have no recorded messages.\n` +
-        "Starting removal..."
+        `⚠️ Found ${targets.length} members with no recorded message. Starting removal...\n` +
+        "Only messages detected after tracking started are counted."
       );
 
       let removed = 0;
@@ -302,22 +301,20 @@ module.exports = {
       }
 
       return message.reply(
-        "🧹 LIST KILL FINISHED\n" +
+        `🧹 LIST KILL FINISHED\n` +
         `✅ Removed: ${removed}\n` +
         `❌ Failed: ${failed.length}` +
         (
           failed.length
-            ? "\n\nFailed UIDs:\n" +
-              failed.join("\n")
+            ? `\n\nFailed UIDs:\n${failed.join("\n")}`
             : ""
         )
       );
     }
 
     return message.reply(
-      "📌 LIST COMMANDS\n\n" +
-      `${prefix}list mm - Show full member list\n` +
-      `${prefix}list kill - Remove undetected members`
+      `Usage:\n${prefix}list mm - Show member list\n` +
+      `${prefix}list kill - Remove untracked members`
     );
   },
 
